@@ -1,0 +1,19 @@
+services:
+  text-quest:
+    build: .
+    container_name: text-quest
+    restart: unless-stopped
+    ports:
+      - "${TEXT_QUEST_PORT:-8000}:${TEXT_QUEST_PORT:-8000}"
+    environment:
+      - TEXT_QUEST_HOST=${TEXT_QUEST_HOST:-0.0.0.0}
+      - TEXT_QUEST_PORT=${TEXT_QUEST_PORT:-8000}
+      - TEXT_QUEST_DB=${TEXT_QUEST_DB:-/app/data/text_quest.db}
+      - TEXT_QUEST_ADMIN_USER=${TEXT_QUEST_ADMIN_USER:-admin}
+      # Задайте пароль в .env или здесь, чтобы включить защиту конструктора и редактирования.
+      # Если оставить пустым, авторизация отключена (открытый тестовый режим).
+      - TEXT_QUEST_ADMIN_PASSWORD=${TEXT_QUEST_ADMIN_PASSWORD:-}
+      - TEXT_QUEST_RATE_LIMIT_PER_MIN=${TEXT_QUEST_RATE_LIMIT_PER_MIN:-240}
+    volumes:
+      # Персистентное сохранение базы SQLite на хосте
+      - ./data:/app/data

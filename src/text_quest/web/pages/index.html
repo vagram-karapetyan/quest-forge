@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Text Quest — текстовые квесты</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔭</text></svg>">
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a href="/" class="brand">✦ Text Quest</a>
+    <div class="topbar-title"></div>
+    <div class="topbar-actions">
+      <button class="btn btn-ghost btn-sm" id="theme-toggle" title="Сменить тему оформления">🎨 Тема</button>
+      <div id="auth-actions" style="display: inline-flex; align-items: center; gap: 0.5rem;"></div>
+      <a href="/docs" class="btn btn-ghost btn-sm" target="_blank" rel="noopener">API</a>
+    </div>
+  </header>
+
+  <main class="catalog">
+    <section class="hero">
+      <div class="hero-icon">🔭</div>
+      <h1>Текстовые квесты</h1>
+      <p>Проходите атмосферные истории, где каждое решение имеет значение, — или создайте свою собственную с визуальным графом, инвентарём и переменными.</p>
+      <div class="hero-actions">
+        <button class="btn btn-primary btn-lg" id="create-btn">＋ Создать новый квест</button>
+        <button class="btn btn-ghost btn-lg" id="import-btn">📥 Импортировать JSON</button>
+        <input type="file" id="import-input" accept=".json,application/json" hidden>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>Каталог квестов</h2>
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <input class="input" id="search-input" placeholder="🔍 Поиск по названию..." style="width: 240px; padding: 6px 12px; font-size: 0.9rem;" autocomplete="off">
+          <span class="muted" id="quest-count"></span>
+        </div>
+      </div>
+      <div class="quest-grid" id="quest-grid">
+        <div class="card empty">Загрузка квестов…</div>
+      </div>
+    </section>
+  </main>
+
+  <dialog class="modal" id="new-quest-dialog">
+    <form class="modal-body" id="new-quest-form">
+      <h2>Новый квест</h2>
+      <p>Придумайте название — сцены, 2D карту и выборы добавите в конструкторе.</p>
+      <label class="field">
+        <span class="field-label">Название</span>
+        <input class="input" name="title" required maxlength="200" placeholder="Например: «Побег из замка теней»" autocomplete="off">
+      </label>
+      <label class="field">
+        <span class="field-label">Короткое описание</span>
+        <textarea class="input" name="description" rows="3" maxlength="5000" placeholder="О чём ваша история? Это увидят игроки в каталоге."></textarea>
+      </label>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" id="cancel-create">Отмена</button>
+        <button type="submit" class="btn btn-primary">Создать и открыть конструктор</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="modal" id="login-dialog">
+    <form class="modal-body" id="login-form">
+      <h2>🔑 Вход для автора</h2>
+      <p>Введите учетные данные для управления и создания квестов.</p>
+      <label class="field">
+        <span class="field-label">Логин (по умолчанию: admin)</span>
+        <input class="input" name="username" placeholder="admin" autocomplete="username">
+      </label>
+      <label class="field">
+        <span class="field-label">Пароль</span>
+        <input class="input" type="password" name="password" required placeholder="Введите пароль" autocomplete="current-password">
+      </label>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" id="cancel-login">Отмена</button>
+        <button type="submit" class="btn btn-primary">Войти</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script type="module" src="/static/js/catalog.js"></script>
+</body>
+</html>

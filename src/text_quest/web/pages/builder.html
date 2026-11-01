@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Конструктор — Text Quest</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛠️</text></svg>">
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a href="/" class="brand">✦ Text Quest</a>
+    <div class="topbar-title"><span class="muted">Конструктор ·</span> <span id="header-title">…</span></div>
+    
+    <div class="topbar-mode-toggle">
+      <div class="view-tabs">
+        <button class="view-tab active" id="tab-editor">📝 Редактор сцены</button>
+        <button class="view-tab" id="tab-canvas">🗺️ Карта графа (2D)</button>
+      </div>
+    </div>
+
+    <div class="topbar-actions">
+      <button class="btn btn-ghost btn-sm" id="theme-toggle" title="Сменить тему оформления">🎨 Тема</button>
+      <span class="save-status saved" id="save-status">✓ Сохранено</span>
+      <button class="btn btn-ghost btn-sm" id="duplicate-quest" title="Сделать полную копию квеста">📋 Копия квеста</button>
+      <a class="btn btn-ghost btn-sm" id="export-html" title="Скачать standalone HTML игру">📦 Экспорт HTML</a>
+      <a class="btn btn-ghost btn-sm" id="export-json" title="Скачать квест в формате JSON">💾 JSON</a>
+      <a class="btn btn-primary btn-sm" id="play-link" target="_blank" rel="noopener">▶ Играть</a>
+      <button class="btn btn-danger btn-sm" id="delete-quest">🗑</button>
+    </div>
+  </header>
+
+  <main class="builder" id="builder">
+    <aside class="builder-side" id="builder-side">
+      <section class="card">
+        <h3>Квест</h3>
+        <label class="field">
+          <span class="field-label">Название</span>
+          <input class="input" id="quest-title" maxlength="200" autocomplete="off">
+        </label>
+        <label class="field">
+          <span class="field-label">Описание для каталога</span>
+          <textarea class="input" id="quest-desc" rows="2" maxlength="5000" placeholder="Пара фраз, чтобы заинтриговать игроков"></textarea>
+        </label>
+        <label class="field">
+          <span class="field-label">★ Стартовая сцена</span>
+          <select class="input" id="start-scene"></select>
+        </label>
+        <label class="field">
+          <span class="field-label">Стартовые переменные (JSON)</span>
+          <input class="input input-mono" id="quest-vars" placeholder='например: {"hp": 100, "gold": 50}'>
+        </label>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <h3>Сцены <span class="count" id="scene-count"></span></h3>
+          <button class="btn btn-primary btn-sm" id="add-scene">＋ Сцена</button>
+        </div>
+        <ul class="scene-list" id="scene-list"></ul>
+      </section>
+
+      <section class="card">
+        <h3>Проверка квеста</h3>
+        <div class="report-summary" id="report-summary">Проверяем…</div>
+        <ul class="report-list" id="report-list"></ul>
+      </section>
+
+      <section class="card">
+        <details class="help">
+          <summary>❓ Возможности конструктора (Twine-level)</summary>
+          <ul>
+            <li><b>2D Карта</b>: переключитесь на «Карту графа» сверху, чтобы видеть карточки сцен и связи со стрелками. Узлы можно перетаскивать мышкой!</li>
+            <li><b>Переменные</b>: задайте стартовые значения в настройках квеста (например, <code>{"gold": 0, "hp": 100}</code>). В тексте сцены пишите <code>{gold}</code>.</li>
+            <li><b>Условия и Действия</b>: в вариантах выбора можно менять переменные (<code>add</code>, <code>set</code>) и задавать условия показа/блокировки.</li>
+            <li><b>Медиа и Markdown</b>: поддерживается жирный текст, курсив, цитаты, списки, а также URL постера сцены и аудио.</li>
+            <li><b>Дублирование</b>: можно создавать копии квестов и копии сцен со всеми переходами в один клик.</li>
+            <li><b>Экспорт HTML</b>: кнопка «Экспорт HTML» компилирует игру в один независимый файл для офлайн-игры!</li>
+          </ul>
+        </details>
+      </section>
+    </aside>
+
+    <section class="builder-main" id="editor-view"></section>
+
+    <section class="canvas-container" id="canvas-view" hidden>
+      <div class="canvas-toolbar">
+        <button class="btn btn-sm btn-ghost" id="zoom-in" title="Приблизить">＋</button>
+        <button class="btn btn-sm btn-ghost" id="zoom-out" title="Отдалить">－</button>
+        <button class="btn btn-sm btn-ghost" id="zoom-reset" title="Масштаб 100%">1:1</button>
+        <button class="btn btn-sm btn-ghost" id="fit-canvas" title="Показать все сцены">⛶ Обзор</button>
+        <button class="btn btn-sm btn-primary" id="auto-layout" title="Красиво расставить узлы графа">⚡ Авто-расстановка</button>
+        <span class="spacer"></span>
+        <button class="btn btn-sm btn-primary" id="canvas-add-scene">＋ Новая сцена</button>
+      </div>
+      <div class="canvas-viewport" id="canvas-viewport">
+        <svg class="canvas-svg" id="canvas-svg">
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="rgba(148, 163, 234, 0.7)" />
+            </marker>
+            <marker id="arrow-selected" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#facc15" />
+            </marker>
+          </defs>
+          <g id="canvas-links"></g>
+        </svg>
+        <div class="canvas-nodes" id="canvas-nodes"></div>
+      </div>
+    </section>
+  </main>
+
+  <datalist id="items-datalist"></datalist>
+
+  <script type="module" src="/static/js/builder.js"></script>
+</body>
+</html>

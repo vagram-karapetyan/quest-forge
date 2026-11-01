@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Text Quest — игра</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔭</text></svg>">
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a href="/" class="brand">✦ Text Quest</a>
+    <div class="topbar-title" id="quest-title"></div>
+    <div class="topbar-actions">
+      <button class="btn btn-ghost btn-sm" id="theme-toggle" title="Сменить тему оформления">🎨 Тема</button>
+      <button class="btn btn-ghost btn-sm" id="log-toggle" title="История сделанных выборов">📜 Журнал</button>
+      <button class="btn btn-ghost btn-sm" id="undo-btn" title="Отменить последний ход" disabled>↶ Назад</button>
+      <button class="btn btn-ghost btn-sm" id="audio-toggle" hidden>🔊 Музыка</button>
+      <a class="btn btn-ghost btn-sm" id="export-html" title="Скачать как автономный HTML-файл для игры без сервера">📦 Офлайн HTML</a>
+      <a class="btn btn-ghost btn-sm" id="builder-link">✎ Конструктор</a>
+      <button class="btn btn-ghost btn-sm" id="restart-btn">↺ Заново</button>
+    </div>
+  </header>
+
+  <main class="player">
+    <section class="card story" id="story-card" aria-live="polite">
+      <div id="media-box" class="scene-media-box" hidden>
+        <img id="scene-image" class="scene-image" alt="Иллюстрация сцены">
+      </div>
+      <h1 class="scene-title" id="scene-title"></h1>
+      <div class="story-text markdown-body" id="story-text">Загрузка…</div>
+      <div class="notice" id="notice" hidden></div>
+      <div class="choices" id="choices"></div>
+      <div class="skip-hint">Нажмите, чтобы показать текст целиком</div>
+    </section>
+
+    <aside class="sidebar">
+      <section class="card side-card" id="vars-card" hidden>
+        <h3>📊 Характеристики</h3>
+        <ul class="vars-list" id="vars-list"></ul>
+      </section>
+
+      <section class="card side-card">
+        <h3>🎒 Инвентарь</h3>
+        <ul class="inventory" id="inventory">
+          <li class="inv-empty">Пока пусто</li>
+        </ul>
+      </section>
+
+      <section class="card side-card">
+        <h3>🧭 Путешествие</h3>
+        <dl class="stats">
+          <dt>Сделано шагов</dt><dd id="stat-steps">0</dd>
+          <dt>Открыто сцен</dt><dd id="stat-visited">—</dd>
+        </dl>
+      </section>
+
+      <section class="card side-card kbd-hint">
+        <kbd>1</kbd>–<kbd>9</kbd> — быстрый выбор,<br>
+        <kbd>Z</kbd> — ход назад (Undo),<br>
+        <kbd>Пробел</kbd> — показать текст сразу.<br>
+        Прогресс сохраняется автоматически.
+      </section>
+    </aside>
+  </main>
+
+  <!-- Модальное окно журнала выборов -->
+  <dialog class="modal" id="log-dialog">
+    <div class="modal-body">
+      <h2>📜 Журнал путешествия</h2>
+      <p class="muted" style="margin-bottom: 14px;">Хроника ваших решений и пройденных сцен:</p>
+      <div id="log-content" style="max-height: 50vh; overflow-y: auto; padding-right: 6px;">
+        <p class="muted">Пока нет записей.</p>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-primary" id="close-log-btn">Закрыть</button>
+      </div>
+    </div>
+  </dialog>
+
+  <audio id="bg-audio" loop></audio>
+
+  <script type="module" src="/static/js/player.js"></script>
+</body>
+</html>
