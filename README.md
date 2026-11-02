@@ -1,227 +1,236 @@
-# 🔭 Text Quest
+# ⚒️ Quest Forge
 
-[![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/Python-3.14-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-[![SQLModel](https://img.shields.io/badge/SQLModel-SQLite%20%28WAL%29-003B57?logo=sqlite&logoColor=white)](https://sqlmodel.tiangolo.com/)
-[![Vanilla JS](https://img.shields.io/badge/Frontend-Vanilla%20ES%20Modules-F7DF1E?logo=javascript&logoColor=black)](#архитектурные-решения)
-[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)](#запуск-через-docker-compose)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![SQLModel](https://img.shields.io/badge/SQLModel-SQLite%20%28WAL%29-003B57?logo=sqlite&logoColor=white)](https://sqlmodel.tiangolo.com/)
+[![Vanilla JS](https://img.shields.io/badge/Frontend-Vanilla%20ES%20Modules-F7DF1E?logo=javascript&logoColor=black)](#architecture)
+[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)](#option-3-run-with-docker-compose)
 
-**Text Quest** — это полнофункциональная веб-платформа и визуальный конструктор (в духе [Twine](https://twinery.org)) для создания, валидации и прохождения нелинейных текстовых RPG и интерактивных историй. Проект позволяет проектировать ветвящиеся сюжеты на интерактивном 2D-графе с системой переменных, инвентарём и условиями, проходить их в браузере или компилировать любой квест в единый автономный `.html`-файл для публикации на itch.io и GitHub Pages без сервера.
+[Читать на русском](README_RU.md)
+
+**Quest Forge** is a full-stack visual interactive story engine and node-based quest constructor (inspired by [Twine](https://twinery.org)) for authoring, validating, and playing non-linear text RPGs and branching narratives. Design complex story graphs on an interactive 2D node canvas with stateful variables, inventory items, and conditional transitions; play them directly in the browser, or compile any quest into a single self-contained `.html` file ready for zero-backend deployment on itch.io or GitHub Pages.
 
 ---
 
-## 🛠 Стек технологий
+## ✨ Overview & Core Features
 
-| Слой | Технологии |
+### 1. Visual Node Editor & 2D Story Canvas (Node Canvas)
+- **Interactive SVG + DOM Canvas**: Renders scenes as interactive cards connected via smooth directional SVG cubic Bézier curves.
+- **BFS Auto-Layout**: Breadth-first graph traversal automatically arranges scenes into clean hierarchical tiers and columns starting from the entry node.
+- **Drag & Drop + Pan & Zoom**: Freeform node positioning with reactive edge re-rendering and debounced auto-save (including unsaved-changes guards before tab close or export).
+
+### 2. Stateful Story Engine & Interactive Player
+- **Twine-like State Logic**: Supports initial quest variables (`{"budget": 150, "morale": 80}`), arithmetic modifiers (`add`), direct assignments (`set`), and inventory mutations (`give_item` / `take_item`).
+- **Conditional Transitions**: Evaluates item requirements and variable comparisons (`==`, `!=`, `>`, `>=`, `<`, `<=`) dynamically, automatically generating human-readable lock reasons for unavailable choices.
+- **Live String Interpolation**: Substitutes runtime variable values into scene titles, narrative body text, and choice labels on the fly (`{gold}`, `{morale}`).
+- **Snapshot Stack & Undo**: Captures session state before every transition (up to 30 steps server-side and 50 steps in standalone builds), allowing players to roll back decisions (`↶ Undo` or `Z` key) along with the playthrough log.
+- **Polished Player UX**: Includes 3 instant-switch visual themes (`🌌 Night`, `📜 Parchment`, `⚡ Cyber`), a DOM-safe `TreeWalker` typewriter effect respecting `prefers-reduced-motion`, and built-in demo quests out of the box.
+
+### 3. Static Graph & Logic Validator (`analysis.py`)
+- Real-time static analyzer that inspects quest topology and state dependencies for game design errors:
+  - **Unreachable scenes** detected via BFS reachability analysis from the start node;
+  - **Dead-end scenes** (non-ending nodes with no outgoing choices);
+  - **Unobtainable item conditions** (choices requiring items that are never granted or only granted in terminal scenes);
+  - **Undeclared `{var}` placeholders** referenced in scene texts or choice labels.
+
+### 4. Standalone HTML Compiler (`export.py`)
+- Compiles any quest into a **Single-File Standalone HTML** bundle containing inlined CSS themes, the serialized quest graph, and a lightweight Vanilla JS runtime engine.
+- Runs completely offline via double-click (`file://`), persists save states in `localStorage`, and can be uploaded directly to **itch.io** or **GitHub Pages**.
+
+### 5. Optional Role-Based Access Control
+- Open by default for frictionless local authoring. Setting `TEXT_QUEST_ADMIN_PASSWORD` protects all mutating endpoints (`POST`, `PATCH`, `DELETE`) and the visual builder via HMAC-SHA256 `HttpOnly` session cookies, HTTP Basic Auth, or `X-Admin-Password` headers while keeping the catalog and player publicly accessible.
+
+---
+
+## 🛠 Tech Stack
+
+| Layer | Technologies |
 | :--- | :--- |
-| **Backend** | Python 3.11+, FastAPI, Pydantic v2, Uvicorn |
-| **База данных & ORM** | SQLite 3 (режим `WAL`, `foreign_keys=ON`), SQLModel + SQLAlchemy 2.0 |
-| **Frontend** | Нативный JavaScript (ES Modules, без сборщиков и тяжелых фреймворков), SVG + CSS3 Grid/Flexbox, HTML5 `<dialog>` и `<audio>` |
-| **Безопасность** | HMAC-SHA256 сессионные токены (`HttpOnly`), `secrets.compare_digest` (защита от timing-атак), HTTP Basic Auth, In-Memory Rate Limiting, защита от XSS в кастомном Markdown-парсере |
-| **Инфраструктура & Тесты** | `uv` (`pyproject.toml`, `uv.lock`), Docker & Docker Compose (с `HEALTHCHECK`), интеграционные тесты (`unittest` + `fastapi.testclient`) |
+| **Backend** | Python 3.11+ (3.14 supported), FastAPI, Pydantic v2, Uvicorn |
+| **Database & ORM** | SQLite 3 (`WAL` journal mode, `foreign_keys=ON`), SQLModel + SQLAlchemy 2.0 |
+| **Frontend** | Vanilla JavaScript (native ES Modules, zero build step / zero heavy frameworks), SVG + CSS3 Grid/Flexbox, HTML5 `<dialog>` & `<audio>` |
+| **Security** | HMAC-SHA256 session tokens (`HttpOnly`), `secrets.compare_digest` (timing-attack safe), HTTP Basic Auth, in-memory IP rate limiting, XSS-safe custom Markdown parser |
+| **Tooling & Infra** | `uv` (`pyproject.toml`, `uv.lock`), Docker & Docker Compose (with `HEALTHCHECK`), integration test suite (`unittest` + `fastapi.testclient`) |
 
 ---
 
-## ✨ Ключевые возможности и архитектурные решения
-
-### 1. Визуальный редактор и 2D-граф сюжета (Node Canvas)
-- **Интерактивный холст (SVG + DOM)**: отображение сцен в виде карточек и переходов между ними с помощью плавных кривых Безье (`SVG Bezier curves`) с индикацией направления.
-- **Авто-расстановка узлов (BFS Auto-Layout)**: алгоритм обхода графа в ширину автоматически выстраивает сцены по уровням и колонкам от стартовой локации.
-- **Drag & Drop + Pan & Zoom**: свободное перемещение узлов с реактивным перестроением связей и отложенным автосохранением (`debounce` + защита от потери несохраненных изменений при закрытии вкладки или экспорте).
-
-### 2. Игровой движок с переменными, условиями и Undo-стеком
-- **Динамическое состояние (Twine-like Logic)**: поддержка стартовых переменных квеста (`{"budget": 150, "morale": 80}`), арифметических модификаторов (`add`), присваиваний (`set`), выдачи и изъятия предметов (`give_item` / `take_item`).
-- **Условные переходы**: проверка наличия/отсутствия предметов и сравнения переменных (`==`, `!=`, `>`, `>=`, `<`, `<=`) с автоматической генерацией понятной игроку причины блокировки выбора.
-- **Интерполяция текста**: подстановка текущих значений переменных на лету в заголовки, описания сцен и кнопки выбора (`{gold}`, `{morale}`).
-- **Снапшоты и откат хода (Undo)**: перед каждым действием состояние сессии сохраняется в стек снапшотов (до 30 шагов на сервере и до 50 в офлайн-версии), позволяя откатить решение кнопкой `↶ Назад` или клавишей `Z` вместе с журналом прохождения.
-
-### 3. Статический анализатор целостности графа (`analysis.py`)
-- Встроенный валидатор в реальном времени проверяет квест на ошибки геймдизайна:
-  - поиск **недостижимых сцен** (через обход графа от стартовой вершины);
-  - обнаружение **тупиков** (сцен без концовки и без ведущих дальше выборов);
-  - выявление **невыполнимых условий** (например, выбор требует предмет, который нигде в квесте не выдается или выдается только в финальной сцене);
-  - поиск **необъявленных переменных** `{var}` в текстах сцен и кнопок выбора.
-
-### 4. Компилятор в автономный HTML (`export.py`)
-- Любой квест можно экспортировать в **Standalone HTML** — один самодостаточный файл, куда автоматически инлайнятся CSS-темы, JSON-структура квеста и легковесный клиентский движок на Vanilla JS.
-- Скомпилированный файл работает при простом открытии двойным кликом (`file://`), сохраняет прогресс в `localStorage` и готов к публикации на **itch.io** или **GitHub Pages**.
-
-### 5. Продуманный UX и опциональная авторизация
-- **3 темы оформления**: `🌌 Ночь`, `📜 Пергамент`, `⚡ Кибер` (переключение без перезагрузки страницы).
-- **Эффект печатной машинки**: посимвольная отрисовка текста по текстовым узлам `TreeWalker` без поломки HTML/Markdown-разметки и с поддержкой `prefers-reduced-motion`.
-- **Гибкая модель доступа**: по умолчанию конструктор открыт для быстрого локального тестирования. При установке переменной `TEXT_QUEST_ADMIN_PASSWORD` все мутирующие эндпоинты (`POST`, `PATCH`, `DELETE`) и страница конструктора защищаются авторизацией, тогда как каталог и прохождение игр остаются публичными.
-
----
-
-## 📂 Структура проекта
+## 🏗 Architecture
 
 ```text
-text-quest/
-├── Dockerfile                  # Образ приложения на базе python:3.12-slim с HEALTHCHECK
-├── docker-compose.yml          # Оркестрация контейнера и персистентного тома SQLite
-├── .env.example                # Шаблон переменных окружения
-├── pyproject.toml              # Метаданные пакета и зависимости (PEP 621 / uv)
-├── main.py                     # Точка входа (python main.py / uvicorn main:app)
-├── LICENSE                     # Лицензия MIT
+quest-forge/
+├── Dockerfile                  # Production container image (python:3.12-slim) with HEALTHCHECK
+├── docker-compose.yml          # Container orchestration & persistent SQLite volume
+├── .env.example                # Environment configuration template
+├── pyproject.toml              # Package metadata & dependencies (PEP 621 / uv)
+├── main.py                     # Application entrypoint (python main.py / uvicorn main:app)
+├── LICENSE                     # MIT License
 ├── tests/
-│   ├── test_game.py            # Интеграционные тесты движка, валидатора, Undo и экспорта
-│   └── test_auth.py            # Тесты ролевой защиты конструктора (Cookie, Basic, Header)
+│   ├── test_game.py            # Integration tests: engine loop, BFS validator, Undo, HTML/JSON export
+│   └── test_auth.py            # Security tests: Cookie, HTTP Basic, and Header authentication
 └── src/text_quest/
-    ├── __init__.py             # CLI-команда text-quest
-    ├── app.py                  # Инициализация FastAPI, Lifespan, Rate-Limiting и роутинг страниц
-    ├── auth.py                 # Аутентификация автора (HMAC-токены, HTTP Basic, X-Admin-Password)
-    ├── db.py                   # Подключение SQLite (WAL, FK) и идемпотентные авто-миграции
-    ├── models.py               # Модели таблиц: Quest, Scene, Choice, GameSession
-    ├── schemas.py              # Строгие Pydantic-схемы запросов и ответов
-    ├── analysis.py             # Статический анализатор графа сцен, предметов и переменных
-    ├── export.py               # Генератор автономного (Standalone) HTML и JSON-экспорт
-    ├── seed.py                 # 2 встроенных демо-квеста (12 и 23 сцены с нелинейным сюжетом)
+    ├── __init__.py             # Package entry & CLI runner
+    ├── app.py                  # FastAPI lifespan, rate-limiting middleware, and page routing
+    ├── auth.py                 # Author authentication (HMAC tokens, HTTP Basic, X-Admin-Password)
+    ├── db.py                   # SQLite connection setup (WAL, FK) & idempotent auto-migrations
+    ├── models.py               # SQLModel entities: Quest, Scene, Choice, GameSession
+    ├── schemas.py              # Strict Pydantic v2 request/response schemas
+    ├── analysis.py             # Static graph & variable/item integrity analyzer (BFS)
+    ├── export.py               # Standalone single-file HTML compiler & JSON exporter
+    ├── seed.py                 # 2 built-in non-linear demo quests (12 and 23 scenes)
     ├── api/
-    │   ├── quests.py           # REST API конструктора: CRUD квестов/сцен/выборов, дублирование, импорт
-    │   └── game.py             # REST API игрового цикла: старт, ход, вычисление условий, Undo
+    │   ├── quests.py           # Builder REST API: quest/scene/choice CRUD, duplication, import/export
+    │   └── game.py             # Player REST API: session start, action evaluation, Undo stack
     └── web/
-        ├── pages/              # HTML-шаблоны: каталог (index), плеер (play), конструктор (builder)
+        ├── pages/              # HTML views: catalog (index.html), player (play.html), builder (builder.html)
         └── static/
-            ├── css/style.css   # Адаптивные стили, анимации и цветовые темы
-            └── js/             # Модульный фронтенд: api.js, catalog.js, player.js, builder.js
+            ├── css/style.css   # Responsive layout, animations, and Night/Parchment/Cyber themes
+            └── js/             # Modular ES frontend: api.js, catalog.js, player.js, builder.js
 ```
 
 ---
 
-## 🚀 Установка и локальный запуск
+## 🚀 Quickstart
 
-### Предварительные требования
-- **Python 3.11+** (рекомендуется пакетный менеджер [`uv`](https://docs.astral.sh/uv/), либо стандартный `pip` + `venv`)
-- **Docker & Docker Compose** *(опционально, для запуска в контейнере)*
+### Prerequisites
+- **Python 3.11+** (recommended: [`uv`](https://docs.astral.sh/uv/) package manager, or standard `venv` + `pip`)
+- **Docker & Docker Compose** *(optional, for containerized deployment)*
 
-### Вариант 1: Быстрый запуск через `uv` (рекомендуется)
+### Option 1: Run with `uv` (Recommended)
 
 ```bash
-# 1. Клонируйте репозиторий
-git clone https://github.com/your-username/text-quest.git
-cd text-quest
+# 1. Clone the repository
+git clone https://github.com/vagram-karapetyan/quest-forge.git
+cd quest-forge
 
-# 2. Создайте файл окружения из шаблона (опционально)
+# 2. Create environment config from template (optional)
 cp .env.example .env
 
-# 3. Установите зависимости в виртуальное окружение
+# 3. Sync dependencies and run the server
 uv sync
-
-# 4. Запустите сервер
 uv run python main.py
 ```
 
-### Вариант 2: Классический запуск через `venv` и `pip`
+### Option 2: Run with `venv` and `pip`
 
 ```bash
-# 1. Создайте и активируйте виртуальное окружение
+# 1. Create and activate a virtual environment
 python -m venv .venv
 # Windows (PowerShell):
 .\.venv\Scripts\Activate.ps1
 # Linux / macOS:
 source .venv/bin/activate
 
-# 2. Установите зависимости
+# 2. Install dependencies
 pip install "fastapi>=0.115.0" "uvicorn>=0.30.0" "sqlmodel>=0.0.22" "httpx>=0.27.0"
 
-# 3. Запустите приложение
+# 3. Start the application
 python main.py
 ```
 
-### Вариант 3: Запуск через Docker Compose
+### Option 3: Run with Docker Compose
 
 ```bash
-# Сборка и запуск контейнера в фоновом режиме (БД сохраняется в ./data)
+# Build and start the container in detached mode (SQLite DB persists in ./data)
 docker compose up -d --build
 ```
 
-После запуска приложение доступно по адресам:
-- 🌐 **Веб-интерфейс (Каталог, Плеер, Конструктор)**: [http://127.0.0.1:8000](http://127.0.0.1:8000)
-- 📖 **Интерактивная документация Swagger UI (OpenAPI)**: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
-- 🩺 **Проверка здоровья сервиса (Healthcheck)**: [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health)
+Once started, access the application at:
+- 🌐 **Web UI (Catalog, Player, Node Builder)**: [http://127.0.0.1:8000](http://127.0.0.1:8000)
+- 📖 **Interactive OpenAPI Docs (Swagger UI)**: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+- 🩺 **Service Healthcheck**: [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health)
 
 ---
 
-## ⚙️ Переменные окружения (`.env`)
+## ⚙️ Environment Variables (`.env`)
 
-Все настройки имеют безопасные значения по умолчанию и могут быть переопределены через переменные окружения (см. [`.env.example`](.env.example)):
+All configuration options provide sensible defaults and can be overridden via environment variables (see [`.env.example`](.env.example)):
 
-| Переменная | По умолчанию | Описание |
+| Variable | Default | Description |
 | :--- | :--- | :--- |
-| `TEXT_QUEST_HOST` | `127.0.0.1` | Сетевой интерфейс (`0.0.0.0` в Docker) |
-| `TEXT_QUEST_PORT` | `8000` | Порт HTTP-сервера |
-| `TEXT_QUEST_RELOAD` | `0` | Автоперезагрузка сервера при изменении кода (`1` — вкл.) |
-| `TEXT_QUEST_DB` | `data/text_quest.db` | Путь к файлу базы данных SQLite |
-| `TEXT_QUEST_ADMIN_USER` | `admin` | Имя пользователя администратора/автора |
-| `TEXT_QUEST_ADMIN_PASSWORD` | *(пусто)* | Пароль для защиты конструктора и изменения данных. Если пуст — открытый режим |
-| `TEXT_QUEST_RATE_LIMIT_PER_MIN` | `240` | Лимит запросов к `/api/*` с одного IP-адреса в минуту |
+| `TEXT_QUEST_HOST` | `127.0.0.1` | Bind address (`0.0.0.0` inside Docker) |
+| `TEXT_QUEST_PORT` | `8000` | HTTP server port |
+| `TEXT_QUEST_RELOAD` | `0` | Enable hot-reload on code changes (`1` to enable) |
+| `TEXT_QUEST_DB` | `data/text_quest.db` | Path to the SQLite database file |
+| `TEXT_QUEST_ADMIN_USER` | `admin` | Administrator / author username |
+| `TEXT_QUEST_ADMIN_PASSWORD` | *(empty)* | Password protecting builder & write endpoints (open mode if empty) |
+| `TEXT_QUEST_RATE_LIMIT_PER_MIN` | `240` | Max `/api/*` requests per minute per client IP |
 
 ---
 
-## 🎮 Примеры использования и сценарии
+## 🔌 API Endpoints & Usage Examples
 
-### Сценарий 1: Знакомство с демо-квестами из коробки
-При первом старте база данных автоматически наполняется двумя полноценными нелинейными квестами:
-1. **«Тайна заброшенной обсерватории»** (12 сцен, 2 победные концовки, 1 ловушка) — классический детективно-мистический квест с поиском предметов (`Латунный ключ`, `Хрустальная линза`, `Звёздная карта`).
-2. **«Инди-разработчик: От идеи до релиза»** (23 сцены, 6 концовок) — экономический и ролевой симулятор с 4 переменными (`budget`, `morale`, `quality`, `hype`), проверкой характеристик при питчинге стримерам и издателям.
+### Core REST Endpoints
 
-### Сценарий 2: Работа с API напрямую (cURL / HTTP)
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/api/quests` | List all quests with scene counts and metadata |
+| `POST` | `/api/quests` | Create a new quest |
+| `GET` | `/api/quests/{id}/full` | Fetch complete quest graph (scenes, choices, coordinates) |
+| `GET` | `/api/quests/{id}/validate` | Run static BFS graph & variable/item integrity analysis |
+| `GET` | `/api/quests/{id}/export` | Export quest as portable JSON |
+| `GET` | `/api/quests/{id}/export/html` | Compile quest into a standalone single-file `.html` game |
+| `POST` | `/api/quests/import` | Import a quest from a JSON bundle |
+| `POST` | `/api/game/start` | Initialize a new playthrough session |
+| `POST` | `/api/game/{session_id}/action` | Execute a player choice, mutate state, and advance scene |
+| `POST` | `/api/game/{session_id}/undo` | Roll back the session to the previous snapshot |
+
+### cURL Examples
 
 ```bash
-# 1. Получить список всех квестов в каталоге
+# 1. List all available quests
 curl -s http://127.0.0.1:8000/api/quests
 
-# 2. Запустить новую игровую сессию для квеста #1
+# 2. Start a new game session for Quest #1
 curl -s -X POST http://127.0.0.1:8000/api/game/start \
   -H "Content-Type: application/json" \
   -d '{"quest_id": 1}'
 
-# 3. Совершить выбор в рамках игровой сессии
+# 3. Make a choice within an active session
 curl -s -X POST http://127.0.0.1:8000/api/game/<SESSION_ID>/action \
   -H "Content-Type: application/json" \
   -d '{"choice_id": 2}'
 
-# 4. Отменить последний ход (Undo)
+# 4. Undo the last turn
 curl -s -X POST http://127.0.0.1:8000/api/game/<SESSION_ID>/undo
 
-# 5. Запустить статический анализатор графа квеста #1
+# 5. Validate quest graph integrity
 curl -s http://127.0.0.1:8000/api/quests/1/validate
 
-# 6. Скачать скомпилированный автономный HTML-файл квеста
+# 6. Download compiled standalone HTML bundle
 curl -s -OJ http://127.0.0.1:8000/api/quests/1/export/html
 ```
 
-### Сценарий 3: Формат условий и действий в конструкторе
-В конструкторе у каждого варианта выбора можно задать JSON-условия доступности и действия над состоянием:
+### Choice Conditions & State Actions Schema
+Each choice in the node builder supports declarative JSON conditions and state mutations:
 
 ```json
-// Условия доступности выбора (Choice.conditions):
+// Choice availability conditions (Choice.conditions):
 [
   { "var": "budget", "op": ">=", "value": 40 },
-  { "item": "Дизайн-документ (GDD)", "has": true }
+  { "item": "Game Design Document (GDD)", "has": true }
 ]
 
-// Действия при нажатии (Choice.actions):
+// State mutations executed on selection (Choice.actions):
 {
   "add": { "budget": -40, "quality": 35 },
   "set": { "artist_hired": true },
-  "give_item": "Пиксель-арт ассеты"
+  "give_item": "Pixel Art Assets"
 }
 ```
 
 ---
 
-## 🧪 Тестирование
+## 🧪 Testing
 
-Проект покрыт интеграционными тестами, проверяющими полный игровой цикл, работу переменных и условий, отмену ходов (`Undo`), дублирование квестов/сцен, валидатор графа, экспорт в HTML/JSON и все способы авторизации:
+The project includes a comprehensive integration test suite covering the full game loop, variable arithmetic, conditional locks, `Undo` snapshots, quest/scene duplication, BFS graph validation, standalone HTML/JSON export, and authentication flows:
 
 ```bash
-python -m unittest discover -s tests -v
+uv run python -m unittest discover -s tests -v
 ```
 
 ---
 
-## 📄 Лицензия
+## 📄 License
 
-Проект распространяется под лицензией [MIT](LICENSE).
+Distributed under the [MIT License](LICENSE).
