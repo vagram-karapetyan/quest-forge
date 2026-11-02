@@ -1,81 +1,82 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Конструктор — Text Quest</title>
+  <title data-i18n="bld_page_title">Builder — Quest Forge</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛠️</text></svg>">
   <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
   <header class="topbar">
-    <a href="/" class="brand">✦ Text Quest</a>
-    <div class="topbar-title"><span class="muted">Конструктор ·</span> <span id="header-title">…</span></div>
+    <a href="/" class="brand">✦ Quest Forge</a>
+    <div class="topbar-title"><span class="muted" data-i18n="bld_header_prefix">Builder ·</span> <span id="header-title">…</span></div>
     
     <div class="topbar-mode-toggle">
       <div class="view-tabs">
-        <button class="view-tab active" id="tab-editor">📝 Редактор сцены</button>
-        <button class="view-tab" id="tab-canvas">🗺️ Карта графа (2D)</button>
+        <button class="view-tab active" id="tab-editor" data-i18n="bld_tab_editor">📝 Scene Editor</button>
+        <button class="view-tab" id="tab-canvas" data-i18n="bld_tab_canvas">🗺️ Graph Map (2D)</button>
       </div>
     </div>
 
     <div class="topbar-actions">
-      <button class="btn btn-ghost btn-sm" id="theme-toggle" title="Сменить тему оформления">🎨 Тема</button>
-      <span class="save-status saved" id="save-status">✓ Сохранено</span>
-      <button class="btn btn-ghost btn-sm" id="duplicate-quest" title="Сделать полную копию квеста">📋 Копия квеста</button>
-      <a class="btn btn-ghost btn-sm" id="export-html" title="Скачать standalone HTML игру">📦 Экспорт HTML</a>
-      <a class="btn btn-ghost btn-sm" id="export-json" title="Скачать квест в формате JSON">💾 JSON</a>
-      <a class="btn btn-primary btn-sm" id="play-link" target="_blank" rel="noopener">▶ Играть</a>
-      <button class="btn btn-danger btn-sm" id="delete-quest">🗑</button>
+      <button class="btn btn-ghost btn-sm" id="lang-toggle" data-i18n-title="lang_btn_title" title="Switch interface language (EN / RU)">🌐 EN</button>
+      <button class="btn btn-ghost btn-sm" id="theme-toggle" data-i18n-title="theme_btn_title" title="Switch color theme">🎨 Night</button>
+      <span class="save-status saved" id="save-status" data-i18n="bld_save_saved">✓ Saved</span>
+      <button class="btn btn-ghost btn-sm" id="duplicate-quest" data-i18n="bld_dup_quest_btn" data-i18n-title="bld_dup_quest_title" title="Create a full copy of this quest">📋 Duplicate</button>
+      <a class="btn btn-ghost btn-sm" id="export-html" data-i18n="bld_export_html_btn" data-i18n-title="bld_export_html_title" title="Download standalone HTML game">📦 Export HTML</a>
+      <a class="btn btn-ghost btn-sm" id="export-json" data-i18n-title="bld_export_json_title" title="Download quest as JSON">💾 JSON</a>
+      <a class="btn btn-primary btn-sm" id="play-link" target="_blank" rel="noopener" data-i18n="bld_play_btn">▶ Play</a>
+      <button class="btn btn-danger btn-sm" id="delete-quest" data-i18n-title="cat_del_title" title="Delete quest">🗑</button>
     </div>
   </header>
 
   <main class="builder" id="builder">
     <aside class="builder-side" id="builder-side">
       <section class="card">
-        <h3>Квест</h3>
+        <h3 data-i18n="bld_quest_heading">Quest Settings</h3>
         <label class="field">
-          <span class="field-label">Название</span>
+          <span class="field-label" data-i18n="bld_quest_title_label">Title</span>
           <input class="input" id="quest-title" maxlength="200" autocomplete="off">
         </label>
         <label class="field">
-          <span class="field-label">Описание для каталога</span>
-          <textarea class="input" id="quest-desc" rows="2" maxlength="5000" placeholder="Пара фраз, чтобы заинтриговать игроков"></textarea>
+          <span class="field-label" data-i18n="bld_quest_desc_label">Catalog Description</span>
+          <textarea class="input" id="quest-desc" rows="2" maxlength="5000" data-i18n-placeholder="bld_quest_desc_placeholder" placeholder="A couple of sentences to hook players"></textarea>
         </label>
         <label class="field">
-          <span class="field-label">★ Стартовая сцена</span>
+          <span class="field-label" data-i18n="bld_start_scene_label">★ Start Scene</span>
           <select class="input" id="start-scene"></select>
         </label>
         <label class="field">
-          <span class="field-label">Стартовые переменные (JSON)</span>
-          <input class="input input-mono" id="quest-vars" placeholder='например: {"hp": 100, "gold": 50}'>
+          <span class="field-label" data-i18n="bld_vars_label">Initial Variables (JSON)</span>
+          <input class="input input-mono" id="quest-vars" data-i18n-placeholder="bld_vars_placeholder" placeholder='e.g. {"hp": 100, "gold": 50}'>
         </label>
       </section>
 
       <section class="card">
         <div class="card-head">
-          <h3>Сцены <span class="count" id="scene-count"></span></h3>
-          <button class="btn btn-primary btn-sm" id="add-scene">＋ Сцена</button>
+          <h3><span data-i18n="bld_scenes_heading">Scenes</span> <span class="count" id="scene-count"></span></h3>
+          <button class="btn btn-primary btn-sm" id="add-scene" data-i18n="bld_add_scene_btn">＋ Scene</button>
         </div>
         <ul class="scene-list" id="scene-list"></ul>
       </section>
 
       <section class="card">
-        <h3>Проверка квеста</h3>
-        <div class="report-summary" id="report-summary">Проверяем…</div>
+        <h3 data-i18n="bld_validation_heading">Quest Validation</h3>
+        <div class="report-summary" id="report-summary" data-i18n="bld_validating">Checking…</div>
         <ul class="report-list" id="report-list"></ul>
       </section>
 
       <section class="card">
         <details class="help">
-          <summary>❓ Возможности конструктора (Twine-level)</summary>
-          <ul>
-            <li><b>2D Карта</b>: переключитесь на «Карту графа» сверху, чтобы видеть карточки сцен и связи со стрелками. Узлы можно перетаскивать мышкой!</li>
-            <li><b>Переменные</b>: задайте стартовые значения в настройках квеста (например, <code>{"gold": 0, "hp": 100}</code>). В тексте сцены пишите <code>{gold}</code>.</li>
-            <li><b>Условия и Действия</b>: в вариантах выбора можно менять переменные (<code>add</code>, <code>set</code>) и задавать условия показа/блокировки.</li>
-            <li><b>Медиа и Markdown</b>: поддерживается жирный текст, курсив, цитаты, списки, а также URL постера сцены и аудио.</li>
-            <li><b>Дублирование</b>: можно создавать копии квестов и копии сцен со всеми переходами в один клик.</li>
-            <li><b>Экспорт HTML</b>: кнопка «Экспорт HTML» компилирует игру в один независимый файл для офлайн-игры!</li>
+          <summary data-i18n="bld_help_summary">❓ Builder Guide (Twine-level)</summary>
+          <ul data-i18n-html="bld_help_html">
+            <li><b>2D Map</b>: switch to “Graph Map (2D)” in the top bar to view scene cards and directional links. Drag nodes freely with your mouse!</li>
+            <li><b>Variables</b>: define initial values in Quest Settings (e.g. <code>{"gold": 0, "hp": 100}</code>). Use <code>{gold}</code> in scene text or choices.</li>
+            <li><b>Conditions & Actions</b>: choices can mutate variables (<code>add</code>, <code>set</code>) and check item/variable conditions.</li>
+            <li><b>Media & Markdown</b>: supports bold, italic, blockquotes, lists, plus scene illustration and ambient audio URLs.</li>
+            <li><b>Duplication</b>: clone entire quests or individual scenes with all transitions in one click.</li>
+            <li><b>HTML Export</b>: compiles the quest into a single self-contained offline HTML file!</li>
           </ul>
         </details>
       </section>
@@ -85,13 +86,13 @@
 
     <section class="canvas-container" id="canvas-view" hidden>
       <div class="canvas-toolbar">
-        <button class="btn btn-sm btn-ghost" id="zoom-in" title="Приблизить">＋</button>
-        <button class="btn btn-sm btn-ghost" id="zoom-out" title="Отдалить">－</button>
-        <button class="btn btn-sm btn-ghost" id="zoom-reset" title="Масштаб 100%">1:1</button>
-        <button class="btn btn-sm btn-ghost" id="fit-canvas" title="Показать все сцены">⛶ Обзор</button>
-        <button class="btn btn-sm btn-primary" id="auto-layout" title="Красиво расставить узлы графа">⚡ Авто-расстановка</button>
+        <button class="btn btn-sm btn-ghost" id="zoom-in" data-i18n-title="bld_zoom_in_title" title="Zoom in">＋</button>
+        <button class="btn btn-sm btn-ghost" id="zoom-out" data-i18n-title="bld_zoom_out_title" title="Zoom out">－</button>
+        <button class="btn btn-sm btn-ghost" id="zoom-reset" data-i18n-title="bld_zoom_reset_title" title="Reset zoom (100%)">1:1</button>
+        <button class="btn btn-sm btn-ghost" id="fit-canvas" data-i18n="bld_fit_btn" data-i18n-title="bld_fit_title" title="Fit all scenes in viewport">⛶ Fit View</button>
+        <button class="btn btn-sm btn-primary" id="auto-layout" data-i18n="bld_autolayout_btn" data-i18n-title="bld_autolayout_title" title="Automatically arrange graph nodes (BFS)">⚡ Auto-Layout</button>
         <span class="spacer"></span>
-        <button class="btn btn-sm btn-primary" id="canvas-add-scene">＋ Новая сцена</button>
+        <button class="btn btn-sm btn-primary" id="canvas-add-scene" data-i18n="bld_canvas_add_scene">＋ New Scene</button>
       </div>
       <div class="canvas-viewport" id="canvas-viewport">
         <svg class="canvas-svg" id="canvas-svg">

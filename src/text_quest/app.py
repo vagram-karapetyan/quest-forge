@@ -1,4 +1,4 @@
-"""FastAPI-приложение: API + HTML-страницы."""
+"""FastAPI application: REST API + HTML views."""
 
 from __future__ import annotations
 
@@ -35,8 +35,8 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(
-    title="Text Quest",
-    description="Платформа для создания и прохождения текстовых квестов.",
+    title="Quest Forge",
+    description="Visual interactive story engine & node-based quest constructor.",
     version="0.3.0",
     lifespan=lifespan,
 )
@@ -44,7 +44,7 @@ app = FastAPI(
 
 @app.middleware("http")
 async def rate_limit_middleware(request: Request, call_next):
-    """Простой in-memory rate limiting для защиты API от перегрузки."""
+    """Simple in-memory rate limiting to protect API endpoints from overload."""
     path = request.url.path
     if path.startswith("/api/"):
         client_ip = request.client.host if request.client else "127.0.0.1"
@@ -53,7 +53,7 @@ async def rate_limit_middleware(request: Request, call_next):
         if len(recent) >= _MAX_REQUESTS_PER_MINUTE:
             return JSONResponse(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                content={"detail": "Слишком много запросов. Пожалуйста, подождите минуту."},
+                content={"detail": "Too many requests. Please wait a minute."},
                 headers={"Retry-After": "60"},
             )
         recent.append(now)
@@ -65,7 +65,7 @@ async def rate_limit_middleware(request: Request, call_next):
 
 @app.middleware("http")
 async def no_cache_middleware(request: Request, call_next):
-    """Предотвращает кэширование браузером динамических страниц, статических скриптов и API."""
+    """Prevents browser caching of dynamic pages, static scripts, and API responses."""
     response = await call_next(request)
     path = request.url.path
     if (
@@ -81,9 +81,9 @@ async def no_cache_middleware(request: Request, call_next):
     return response
 
 
-@app.get("/health", tags=["Система"], summary="Проверка работоспособности")
+@app.get("/health", tags=["System"], summary="Service healthcheck")
 def healthcheck():
-    """Эндпоинт для docker healthcheck и cloud monitoring."""
+    """Endpoint for Docker healthcheck and cloud monitoring."""
     with Session(db.engine) as session:
         session.exec(select(1)).first()
     return {"status": "ok", "version": "0.3.0"}

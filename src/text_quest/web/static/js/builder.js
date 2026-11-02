@@ -1,4 +1,4 @@
-import { api, h, idFromPath, initTheme, plural, toast } from './api.js';
+import { api, h, idFromPath, initTheme, plural, t, toast, translateServerText } from './api.js';
 
 const questId = idFromPath();
 
@@ -62,14 +62,14 @@ const canvasState = {
 };
 
 const sceneById = (id) => state.scenes.find((s) => s.id === id);
-const sceneLabel = (s) => (s.title || '').trim() || `Сцена #${s.id}`;
+const sceneLabel = (s) => (s.title || '').trim() || t('bld_scene_fallback', s.id);
 const endingMark = (s) => (s.ending === 'win' ? ' 🏆' : s.ending === 'lose' ? ' 💀' : '');
 
 function isPlainObject(val) {
   return typeof val === 'object' && val !== null && !Array.isArray(val);
 }
 
-// ================= автосохранение =================
+// ================= Auto-Save =================
 
 const pending = new Map();
 const inflightPromises = new Set();
@@ -77,14 +77,15 @@ let lastFailed = false;
 
 function updateSaveStatus() {
   const el = els.saveStatus;
+  if (!el) return;
   if (pending.size || inflightPromises.size) {
-    el.textContent = '● Сохранение…';
+    el.textContent = t('bld_save_saving');
     el.className = 'save-status saving';
   } else if (lastFailed) {
-    el.textContent = '⚠ Ошибка сохранения';
+    el.textContent = t('bld_save_error');
     el.className = 'save-status error';
   } else {
-    el.textContent = '✓ Сохранено';
+    el.textContent = t('bld_save_saved');
     el.className = 'save-status saved';
   }
 }
@@ -108,7 +109,7 @@ function execute(key) {
       lastFailed = false;
     } catch (e) {
       lastFailed = true;
-      toast(`Не удалось сохранить: ${e.message}`, 'error');
+      toast(t('bld_save_failed_toast', e.message), 'error');
     } finally {
       inflightPromises.delete(p);
       updateSaveStatus();
@@ -152,7 +153,7 @@ const patchQuest = (body) => api(`/api/quests/${questId}`, { method: 'PATCH', bo
 const patchScene = (id, body) => api(`/api/scenes/${id}`, { method: 'PATCH', body });
 const patchChoice = (id, body) => api(`/api/choices/${id}`, { method: 'PATCH', body });
 
-// ================= проверка квеста =================
+// ================= Quest Validation =================
 
 let validateTimer = null;
 function scheduleValidate(delay = 700) {
@@ -182,19 +183,19 @@ function renderReport() {
   const warnings = r.issues.filter((i) => i.level === 'warning').length;
   if (r.ok) {
     els.reportSummary.textContent = warnings
-      ? `✅ Квест рабочий · ${warnings} ${plural(warnings, ['замечание', 'замечания', 'замечаний'])}`
-      : '✅ Квест готов — замечаний нет';
+      ? t('bld_report_ok_warn', warnings, plural(warnings, ['замечание', 'замечания', 'замечаний'], ['warning', 'warnings']))
+      : t('bld_report_ok_clean');
     els.reportSummary.className = 'report-summary ok';
   } else {
-    els.reportSummary.textContent = `⛔ ${errors} ${plural(errors, ['ошибка', 'ошибки', 'ошибок'])}`;
+    els.reportSummary.textContent = t('bld_report_errors', errors, plural(errors, ['ошибка', 'ошибки', 'ошибок'], ['error', 'errors']));
     els.reportSummary.className = 'report-summary bad';
   }
   const icons = { error: '⛔', warning: '⚠️', info: 'ℹ️' };
   els.reportList.replaceChildren(...r.issues.map((issue) => h('li', {
     class: `report-item ${issue.level}${issue.scene_id ? ' clickable' : ''}`,
-    title: issue.scene_id ? 'Перейти к сцене' : null,
+    title: issue.scene_id ? t('bld_goto_scene_title') : null,
     onclick: issue.scene_id ? () => selectScene(issue.scene_id) : null,
-  }, h('span', {}, icons[issue.level]), h('span', {}, issue.message))));
+  }, h('span', {}, icons[issue.level]), h('span', {}, translateServerText(issue.message)))));
   renderDatalist();
 }
 
@@ -226,17 +227,18 @@ function issuesByScene() {
   return map;
 }
 
-// ================= боковая панель =================
+// ================= Sidebar =================
 
 function renderQuestMeta() {
   const q = state.quest;
+  if (!q) return;
   els.questTitle.value = q.title;
   els.questDesc.value = q.description;
   els.questVars.value = Object.keys(q.initial_variables || {}).length
     ? JSON.stringify(q.initial_variables)
     : '';
   els.headerTitle.textContent = q.title;
-  document.title = `${q.title} — конструктор`;
+  document.title = t('bld_doc_title', q.title);
   els.playLink.href = `/play/${q.id}?new=1`;
   els.exportHtml.href = `/api/quests/${q.id}/export/html`;
   els.exportJson.href = `/api/quests/${q.id}/export/json`;
@@ -244,14 +246,16 @@ function renderQuestMeta() {
 
 function renderStartSelect() {
   const q = state.quest;
+  if (!q) return;
   els.startScene.replaceChildren(
-    h('option', { value: '' }, '— не выбрана —'),
+    h('option', { value: '' }, t('bld_start_none')),
     ...state.scenes.map((s) => h('option', { value: String(s.id) }, `#${s.id} · ${sceneLabel(s)}`)),
   );
   els.startScene.value = q.start_scene_id ?? '';
 }
 
 function renderSceneList() {
+  if (!state.quest) return;
   const issues = issuesByScene();
   els.sceneCount.textContent = `(${state.scenes.length})`;
   els.sceneList.replaceChildren(...state.scenes.map((s) => {
@@ -264,12 +268,12 @@ function renderSceneList() {
       h('span', { class: 'scene-item-id' }, `#${s.id}`),
       h('span', { class: `scene-item-name${s.title.trim() ? '' : ' placeholder'}` }, sceneLabel(s)),
       h('span', { class: 'badges' },
-        s.id === state.quest.start_scene_id ? h('span', { class: 'badge badge-start', title: 'Стартовая сцена' }, '★') : null,
-        s.ending === 'win' ? h('span', { class: 'badge', title: 'Победа' }, '🏆') : null,
-        s.ending === 'lose' ? h('span', { class: 'badge', title: 'Поражение' }, '💀') : null,
+        s.id === state.quest.start_scene_id ? h('span', { class: 'badge badge-start', title: t('bld_badge_start_title') }, '★') : null,
+        s.ending === 'win' ? h('span', { class: 'badge', title: t('bld_badge_win_title') }, '🏆') : null,
+        s.ending === 'lose' ? h('span', { class: 'badge', title: t('bld_badge_lose_title') }, '💀') : null,
         issue ? h('span', {
           class: `badge badge-warn${issue.error ? ' badge-error' : ''}`,
-          title: `${issue.count} ${plural(issue.count, ['замечание', 'замечания', 'замечаний'])}`,
+          title: `${issue.count} ${plural(issue.count, ['замечание', 'замечания', 'замечаний'], ['issue', 'issues'])}`,
         }, '!') : null,
       )),
     );
@@ -284,7 +288,7 @@ function refreshTargetLabels() {
   }
 }
 
-// ================= редактор сцены =================
+// ================= Scene Editor =================
 
 function targetOptionLabel(scene, current) {
   return `${scene.id === current?.id ? '↺ ' : ''}#${scene.id} · ${sceneLabel(scene)}${endingMark(scene)}`;
@@ -292,9 +296,9 @@ function targetOptionLabel(scene, current) {
 
 function targetOptions(current) {
   return [
-    h('option', { value: '' }, '— остаться в этой сцене —'),
+    h('option', { value: '' }, t('bld_stay_in_scene')),
     ...state.scenes.map((s) => h('option', { value: String(s.id) }, targetOptionLabel(s, current))),
-    h('option', { value: '__new' }, '＋ Создать новую сцену…'),
+    h('option', { value: '__new' }, t('bld_create_new_scene_opt')),
   ];
 }
 
@@ -311,19 +315,19 @@ function choiceCard(scene, choice, index) {
     const staysInScene = choice.target_scene_id == null || choice.target_scene_id === scene.id;
     if (staysInScene) {
       parts.push(choice.item_given || (choice.actions && Object.keys(choice.actions).length)
-        ? 'Игрок останется в сцене и получит награду/изменит переменные.'
-        : '⚠ Выбор никуда не ведёт и ничего не меняет.');
+        ? t('bld_hint_stays_reward')
+        : t('bld_hint_stays_noop'));
     }
-    if (choice.required_item) parts.push(`🔒 Требует «${choice.required_item}».`);
-    if (choice.conditions && choice.conditions.length) parts.push(`⚙ Условий: ${choice.conditions.length}.`);
-    if (choice.actions && Object.keys(choice.actions).length) parts.push(`⚡ Действий: ${Object.keys(choice.actions).length}.`);
+    if (choice.required_item) parts.push(t('bld_hint_req_item', choice.required_item));
+    if (choice.conditions && choice.conditions.length) parts.push(t('bld_hint_conds', choice.conditions.length));
+    if (choice.actions && Object.keys(choice.actions).length) parts.push(t('bld_hint_actions', Object.keys(choice.actions).length));
     hint.textContent = parts.join(' ');
     hint.hidden = !parts.length;
   };
 
   const jump = h('button', {
     class: 'btn btn-icon',
-    title: 'Перейти к целевой сцене',
+    title: t('bld_jump_target_title'),
     disabled: choice.target_scene_id == null,
     onclick: () => selectScene(choice.target_scene_id),
   }, '→');
@@ -337,13 +341,13 @@ function choiceCard(scene, choice, index) {
         select.disabled = true;
         try {
           const created = await createScene({
-            title: choice.text.trim().slice(0, 200) || 'Новая сцена',
+            title: choice.text.trim().slice(0, 200) || t('bld_new_scene_default'),
             pos_x: (scene.pos_x || 100) + 280,
             pos_y: (scene.pos_y || 100),
           });
           choice.target_scene_id = created.id;
           await patchChoice(choice.id, { target_scene_id: created.id });
-          toast(`Создана сцена «${sceneLabel(created)}»`, 'success');
+          toast(t('bld_scene_created_toast', sceneLabel(created)), 'success');
           renderSceneList();
           renderEditor();
           scheduleValidate(0);
@@ -376,7 +380,7 @@ function choiceCard(scene, choice, index) {
     onchange: renderDatalist,
   });
 
-  // Расширенные условия и действия
+  // Advanced conditions & actions
   const condInput = h('input', {
     class: 'input input-mono',
     placeholder: '[{"var": "gold", "op": ">=", "value": 10}]',
@@ -415,7 +419,7 @@ function choiceCard(scene, choice, index) {
     },
   });
 
-  // Быстрый шаблон условия
+  // Quick condition template
   const templateCondBtn = h('button', {
     type: 'button',
     class: 'btn btn-ghost btn-sm',
@@ -429,9 +433,9 @@ function choiceCard(scene, choice, index) {
       condInput.classList.remove('invalid');
       updateHint();
       save('conditions');
-      toast(`Добавлен шаблон проверки ${varName} >= 10`, 'info');
+      toast(t('bld_template_cond_toast', varName), 'info');
     },
-  }, '⚡ Вставить шаблон условия');
+  }, t('bld_template_cond_btn'));
 
   updateHint();
   return h('div', { class: `choice-card${scene.ending ? ' dimmed' : ''}` },
@@ -441,7 +445,7 @@ function choiceCard(scene, choice, index) {
         class: 'input choice-text-input',
         maxlength: 500,
         value: choice.text,
-        placeholder: 'Текст кнопки, например «Открыть дверь»',
+        placeholder: t('bld_choice_placeholder'),
         oninput: (event) => {
           choice.text = event.target.value;
           save('text');
@@ -450,34 +454,34 @@ function choiceCard(scene, choice, index) {
       }),
       h('button', {
         class: 'btn btn-icon btn-danger',
-        title: 'Удалить вариант',
+        title: t('bld_del_choice_title'),
         onclick: () => deleteChoice(scene, choice),
       }, '✕'),
     ),
     h('div', { class: 'choice-grid' },
       h('div', { class: 'field' },
-        h('span', { class: 'field-label' }, 'Ведёт в сцену'),
+        h('span', { class: 'field-label' }, t('bld_leads_to_label')),
         h('div', { class: 'inline' }, target, jump),
       ),
       h('label', { class: 'field' },
-        h('span', { class: 'field-label' }, '🔒 Требует предмет'),
-        itemInput('required_item', 'не требуется'),
+        h('span', { class: 'field-label' }, t('bld_req_item_label')),
+        itemInput('required_item', t('bld_req_item_placeholder')),
       ),
       h('label', { class: 'field' },
-        h('span', { class: 'field-label' }, '🎁 Выдаёт предмет'),
-        itemInput('item_given', 'ничего'),
+        h('span', { class: 'field-label' }, t('bld_give_item_label')),
+        itemInput('item_given', t('bld_give_item_placeholder')),
       ),
     ),
     h('details', { class: 'choice-advanced' },
-      h('summary', {}, '⚙️ Условия и переменные (Twine Logic)'),
+      h('summary', {}, t('bld_adv_summary')),
       h('div', { class: 'advanced-grid' },
         h('label', { class: 'field' },
-          h('span', { class: 'field-label' }, 'Условия (JSON список)'),
+          h('span', { class: 'field-label' }, t('bld_cond_json_label')),
           condInput,
           templateCondBtn,
         ),
         h('label', { class: 'field' },
-          h('span', { class: 'field-label' }, 'Действия / Переменные (JSON)'),
+          h('span', { class: 'field-label' }, t('bld_act_json_label')),
           actInput,
         ),
       ),
@@ -487,11 +491,12 @@ function choiceCard(scene, choice, index) {
 }
 
 function renderEditor() {
+  if (!state.quest) return;
   const scene = sceneById(state.currentId);
   if (!scene) {
     els.editorView.replaceChildren(h('div', { class: 'card empty' },
-      h('p', {}, state.scenes.length ? 'Выберите сцену в списке слева.' : 'В квесте пока нет сцен.'),
-      h('button', { class: 'btn btn-primary', onclick: addScene }, '＋ Добавить сцену'),
+      h('p', {}, state.scenes.length ? t('bld_empty_select_scene') : t('bld_empty_no_scenes')),
+      h('button', { class: 'btn btn-primary', onclick: addScene }, t('bld_add_scene_large')),
     ));
     return;
   }
@@ -503,7 +508,7 @@ function renderEditor() {
     id: 'scene-title-input',
     maxlength: 200,
     value: scene.title,
-    placeholder: 'Название сцены',
+    placeholder: t('bld_scene_title_placeholder'),
     oninput: (event) => {
       scene.title = event.target.value;
       schedule(`scene-title-${scene.id}`, () => patchScene(scene.id, { title: scene.title }));
@@ -524,16 +529,16 @@ function renderEditor() {
       if (state.viewMode === 'canvas') renderCanvas();
     },
   },
-  h('option', { value: '' }, '📖 Обычная сцена'),
-  h('option', { value: 'win' }, '🏆 Концовка: победа'),
-  h('option', { value: 'lose' }, '💀 Концовка: поражение'));
+  h('option', { value: '' }, t('bld_ending_normal')),
+  h('option', { value: 'win' }, t('bld_ending_win')),
+  h('option', { value: 'lose' }, t('bld_ending_lose')));
 
   const textArea = h('textarea', {
     class: 'input story-input',
     rows: 8,
     maxlength: 20000,
     value: scene.text,
-    placeholder: 'Опишите, что видит игрок… Поддерживается Markdown (жирный, курсив, цитаты, {переменные})',
+    placeholder: t('bld_scene_text_placeholder'),
     oninput: (event) => {
       scene.text = event.target.value;
       schedule(`scene-text-${scene.id}`, () => patchScene(scene.id, { text: scene.text }), 700);
@@ -568,67 +573,68 @@ function renderEditor() {
   els.editorView.replaceChildren(
     h('section', { class: 'card' },
       h('div', { class: 'editor-head' },
-        h('label', { class: 'field title-field' }, h('span', { class: 'field-label' }, `Сцена #${scene.id}`), titleInput),
-        h('label', { class: 'field ending-field' }, h('span', { class: 'field-label' }, 'Тип сцены'), endingSelect),
+        h('label', { class: 'field title-field' }, h('span', { class: 'field-label' }, t('bld_scene_num_label', scene.id)), titleInput),
+        h('label', { class: 'field ending-field' }, h('span', { class: 'field-label' }, t('bld_scene_type_label')), endingSelect),
       ),
       h('label', { class: 'field', style: 'margin-top: 14px' },
-        h('span', { class: 'field-label' }, 'Текст сцены (Markdown + {переменные})'),
+        h('span', { class: 'field-label' }, t('bld_scene_text_label')),
         textArea,
       ),
       h('div', { class: 'media-fields' },
         h('label', { class: 'field' },
-          h('span', { class: 'field-label' }, '🖼 Иллюстрация сцены (URL)'),
+          h('span', { class: 'field-label' }, t('bld_scene_img_label')),
           imgInput,
         ),
         h('label', { class: 'field' },
-          h('span', { class: 'field-label' }, '🎵 Фоновое аудио (URL)'),
+          h('span', { class: 'field-label' }, t('bld_scene_audio_label')),
           audioInput,
         ),
       ),
       h('div', { class: 'editor-toolbar' },
         isStart
-          ? h('span', { class: 'chip' }, '★ Стартовая сцена')
-          : h('button', { class: 'btn btn-ghost btn-sm', onclick: () => setStartScene(scene.id) }, '★ Сделать стартовой'),
-        h('button', { class: 'btn btn-ghost btn-sm', onclick: () => duplicateCurrentScene(scene) }, '📋 Дублировать сцену'),
+          ? h('span', { class: 'chip' }, t('bld_chip_start_scene'))
+          : h('button', { class: 'btn btn-ghost btn-sm', onclick: () => setStartScene(scene.id) }, t('bld_make_start_btn')),
+        h('button', { class: 'btn btn-ghost btn-sm', onclick: () => duplicateCurrentScene(scene) }, t('bld_dup_scene_btn')),
         h('span', { class: 'spacer' }),
-        h('button', { class: 'btn btn-danger btn-sm', onclick: () => deleteScene(scene) }, '🗑 Удалить сцену'),
+        h('button', { class: 'btn btn-danger btn-sm', onclick: () => deleteScene(scene) }, t('bld_del_scene_btn')),
       ),
     ),
 
     h('section', { class: 'card editor-section' },
       h('div', { class: 'card-head' },
-        h('h3', {}, `Варианты выбора (${scene.choices.length})`),\n        h('button', { class: 'btn btn-primary btn-sm', onclick: () => addChoice(scene) }, '＋ Добавить вариант'),
+        h('h3', {}, t('bld_choices_heading', scene.choices.length)),
+        h('button', { class: 'btn btn-primary btn-sm', onclick: () => addChoice(scene) }, t('bld_add_choice_btn')),
       ),
       scene.ending
-        ? h('p', { class: 'note' }, 'Это финальная сцена: варианты выбора не отображаются.')
+        ? h('p', { class: 'note' }, t('bld_note_ending_no_choices'))
         : (!scene.choices.length
-          ? h('p', { class: 'note' }, 'Добавьте варианты выбора — без них сцена станет тупиком.')
+          ? h('p', { class: 'note' }, t('bld_note_no_choices_deadend'))
           : null),
       scene.choices.map((c, i) => choiceCard(scene, c, i)),
     ),
 
     h('section', { class: 'card editor-section' },
-      h('h3', {}, 'Сюда ведут'),
+      h('h3', {}, t('bld_incoming_heading')),
       incoming.length
         ? h('ul', { class: 'incoming-list' }, incoming.map(({ other, choice }) => h('li', {},
           h('button', { class: 'incoming-link', onclick: () => selectScene(other.id) },
             `${sceneLabel(other)} → «${choice.text || '…'}»`))))
         : h('p', { class: 'note' }, isStart
-          ? 'Это стартовая сцена — с неё начинается игра.'
-          : 'Ни один вариант выбора пока не ведёт в эту сцену.'),
+          ? t('bld_incoming_start_note')
+          : t('bld_incoming_none_note')),
     ),
   );
 }
 
-// ================= 2D Карта (Граф сцен) =================
+// ================= 2D Node Canvas =================
 
 const NODE_W = 220;
 const NODE_H = 115;
 
 function updateCanvasTransform() {
   const { zoom, panX, panY } = canvasState;
-  const t = `translate(${panX}px, ${panY}px) scale(${zoom})`;
-  els.canvasNodes.style.transform = t;
+  const tStr = `translate(${panX}px, ${panY}px) scale(${zoom})`;
+  els.canvasNodes.style.transform = tStr;
   els.canvasLinks.setAttribute('transform', `translate(${panX}, ${panY}) scale(${zoom})`);
 }
 
@@ -641,6 +647,7 @@ function updateCanvasSelection() {
 }
 
 function renderCanvas() {
+  if (!state.quest) return;
   const scenes = state.scenes;
   const issues = issuesByScene();
 
@@ -683,7 +690,7 @@ function renderCanvas() {
     ),
     h('div', { class: 'node-body' }, snippet),
     h('div', { class: 'node-foot' },
-      h('span', {}, `${s.choices.length} ${plural(s.choices.length, ['переход', 'перехода', 'переходов'])}`),
+      h('span', {}, `${s.choices.length} ${plural(s.choices.length, ['переход', 'перехода', 'переходов'], ['link', 'links'])}`),
     ));
     return card;
   }));
@@ -739,7 +746,7 @@ function renderCanvasLinks() {
   els.canvasLinks.replaceChildren(...paths);
 }
 
-// Drag & Drop узлов
+// Drag & Drop nodes
 function onNodeMouseDown(e, scene, cardEl) {
   if (e.button !== 0) return;
   e.stopPropagation();
@@ -788,7 +795,7 @@ function onNodeMouseDown(e, scene, cardEl) {
   window.addEventListener('mouseup', onMouseUp);
 }
 
-// Pan & Zoom холста
+// Pan & Zoom canvas
 els.canvasViewport.addEventListener('mousedown', (e) => {
   if (e.target.closest('.node-card') || e.target.closest('.canvas-toolbar')) return;
   canvasState.isPanning = true;
@@ -828,7 +835,7 @@ els.canvasViewport.addEventListener('wheel', (e) => {
   updateCanvasTransform();
 }, { passive: false });
 
-// Авто-расстановка узлов (BFS Columns)
+// BFS Auto-Layout
 function runAutoLayout() {
   const startId = state.quest.start_scene_id;
   const scenes = state.scenes;
@@ -880,7 +887,7 @@ function runAutoLayout() {
 
   renderCanvas();
   fitAllNodes();
-  toast('Авто-расстановка применена!', 'success');
+  toast(t('bld_autolayout_toast'), 'success');
 }
 
 function fitAllNodes() {
@@ -918,7 +925,7 @@ function fitAllNodes() {
   updateCanvasTransform();
 }
 
-// ================= переключение видов =================
+// ================= View Switching =================
 
 function switchView(mode) {
   state.viewMode = mode;
@@ -940,7 +947,7 @@ function switchView(mode) {
   }
 }
 
-// ================= действия =================
+// ================= Actions =================
 
 function selectScene(id, { fromCanvasNode = false } = {}) {
   state.currentId = id ?? null;
@@ -966,7 +973,7 @@ async function addScene() {
   try {
     const last = state.scenes[state.scenes.length - 1];
     const created = await createScene({
-      title: `Новая сцена ${state.scenes.length + 1}`,
+      title: t('bld_new_scene_num', state.scenes.length + 1),
       pos_x: (last?.pos_x || 60) + 290,
       pos_y: last?.pos_y || 60,
     });
@@ -984,24 +991,24 @@ async function duplicateCurrentScene(scene) {
     state.scenes.push(dup);
     renderSceneList();
     selectScene(dup.id);
-    toast(`Создана копия сцены: «${dup.title}»`, 'success');
+    toast(t('bld_dup_scene_toast', dup.title), 'success');
     scheduleValidate(0);
   } catch (e) {
-    toast(`Ошибка копирования сцены: ${e.message}`, 'error');
+    toast(t('bld_dup_scene_err', e.message), 'error');
   }
 }
 
 async function deleteScene(scene) {
   const incoming = state.scenes.reduce((n, s) => n + s.choices.filter((c) => c.target_scene_id === scene.id).length, 0);
-  const warn = incoming ? `\n\nНа неё ссылаются варианты выбора (${incoming}) — они станут «остаться в сцене».` : '';
-  if (!confirm(`Удалить сцену «${sceneLabel(scene)}» вместе с её вариантами выбора?${warn}`)) return;
+  const warn = incoming ? t('bld_del_scene_incoming_warn', incoming) : '';
+  if (!confirm(t('bld_del_scene_confirm', sceneLabel(scene), warn))) return;
   try {
     cancelPending((key) => key.startsWith('scene-') && key.endsWith(`-${scene.id}`));
     await flushPending();
     await api(`/api/scenes/${scene.id}`, { method: 'DELETE' });
     await reload();
     selectScene(state.quest.start_scene_id ?? state.scenes[0]?.id ?? null);
-    toast('Сцена удалена', 'success');
+    toast(t('bld_del_scene_toast'), 'success');
   } catch (e) {
     toast(e.message, 'error');
   }
@@ -1019,7 +1026,7 @@ async function addChoice(scene) {
 }
 
 async function deleteChoice(scene, choice) {
-  if (choice.text.trim() && !confirm(`Удалить вариант «${choice.text}»?`)) return;
+  if (choice.text.trim() && !confirm(t('bld_del_choice_confirm', choice.text))) return;
   try {
     cancelPending((key) => key.startsWith('choice-') && key.endsWith(`-${choice.id}`));
     await api(`/api/choices/${choice.id}`, { method: 'DELETE' });
@@ -1056,23 +1063,26 @@ async function reload() {
   scheduleValidate(0);
 }
 
+let fatalState = null;
+
 function showFatal(title, message) {
+  fatalState = { title, message };
   els.builder.replaceChildren(h('section', { class: 'card fatal' },
     h('h2', {}, title),
     h('p', {}, message),
-    h('a', { class: 'btn btn-primary', href: '/' }, '← В каталог'),
+    h('a', { class: 'btn btn-primary', href: '/' }, t('bld_fatal_back_catalog')),
   ));
   els.playLink.hidden = true;
   els.deleteQuest.hidden = true;
   els.saveStatus.hidden = true;
 }
 
-// ================= инициализация =================
+// ================= Initialization =================
 
 els.tabEditor.addEventListener('click', () => switchView('editor'));
 els.tabCanvas.addEventListener('click', () => switchView('canvas'));
 
-// Гарантируем сохранение отложенных изменений перед экспортом или запуском игры
+// Ensure pending changes are flushed before export or play
 for (const linkEl of [els.playLink, els.exportHtml, els.exportJson]) {
   linkEl?.addEventListener('click', async (e) => {
     if (!pending.size && !inflightPromises.size) return;
@@ -1092,10 +1102,10 @@ els.duplicateQuest?.addEventListener('click', async () => {
   try {
     await flushPending();
     const dup = await api(`/api/quests/${questId}/duplicate`, { method: 'POST' });
-    toast(`Квест продублирован: «${dup.title}»`, 'success');
+    toast(t('bld_dup_quest_toast', dup.title), 'success');
     location.href = `/builder/${dup.id}`;
   } catch (err) {
-    toast(`Ошибка копирования квеста: ${err.message}`, 'error');
+    toast(t('bld_dup_quest_err', err.message), 'error');
   }
 });
 
@@ -1106,7 +1116,7 @@ els.questTitle.addEventListener('input', () => {
   if (!valid) return;
   state.quest.title = value.trim();
   els.headerTitle.textContent = state.quest.title;
-  document.title = `${state.quest.title} — конструктор`;
+  document.title = t('bld_doc_title', state.quest.title);
   schedule('quest-title', () => patchQuest({ title: state.quest.title }));
 });
 
@@ -1156,7 +1166,7 @@ els.fitCanvas.addEventListener('click', fitAllNodes);
 els.autoLayout.addEventListener('click', runAutoLayout);
 
 els.deleteQuest.addEventListener('click', async () => {
-  if (!confirm(`Удалить квест «${state.quest.title}» со всеми сценами? Это действие нельзя отменить.`)) return;
+  if (!confirm(t('bld_del_quest_confirm', state.quest.title))) return;
   try {
     cancelPending(() => true);
     await api(`/api/quests/${questId}`, { method: 'DELETE' });
@@ -1166,16 +1176,32 @@ els.deleteQuest.addEventListener('click', async () => {
   }
 });
 
+window.addEventListener('tq:langchange', () => {
+  updateSaveStatus();
+  if (state.quest) {
+    document.title = t('bld_doc_title', state.quest.title);
+    renderSceneList();
+    renderReport();
+    if (state.viewMode === 'canvas') {
+      renderCanvas();
+    } else {
+      renderEditor();
+    }
+  } else if (fatalState) {
+    showFatal(t('bld_not_found_title'), fatalState.message);
+  }
+});
+
 async function init() {
+  initTheme();
   if (!questId) {
-    showFatal('Квест не найден', 'Некорректный адрес конструктора.');
+    showFatal(t('bld_not_found_title'), t('bld_not_found_bad_url'));
     return;
   }
-  initTheme();
   try {
     await reload();
   } catch (e) {
-    showFatal('Квест не найден', e.status === 404 ? 'Возможно, его удалили.' : e.message);
+    showFatal(t('bld_not_found_title'), e.status === 404 ? t('bld_not_found_deleted') : e.message);
     return;
   }
   const fromHash = Number((location.hash.match(/scene-(\d+)/) || [])[1]);

@@ -1,4 +1,4 @@
-"""Text Quest — платформа для создания и прохождения текстовых квестов."""
+"""Quest Forge — visual interactive story engine & node-based quest constructor."""
 
 import os
 

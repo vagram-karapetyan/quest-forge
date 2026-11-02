@@ -1,4 +1,4 @@
-import { api, h, initTheme, plural, toast } from './api.js';
+import { api, h, initTheme, plural, t, toast } from './api.js';
 
 const grid = document.getElementById('quest-grid');
 const countEl = document.getElementById('quest-count');
@@ -15,6 +15,7 @@ const cancelLogin = document.getElementById('cancel-login');
 let authState = { auth_required: false, is_authenticated: true, username: null };
 let pendingRedirect = null;
 let allQuests = [];
+let hasLoaded = false;
 
 function openLoginDialog(nextUrl = null) {
   if (!loginDialog) return;
@@ -41,7 +42,7 @@ if (loginForm && loginDialog) {
         method: 'POST',
         body: { username, password },
       });
-      toast(`Добро пожаловать, ${res.username || 'автор'}!`, 'success');
+      toast(t('auth_welcome', res.username || t('auth_author_default')), 'success');
       loginDialog.close();
       await checkAuth();
       if (pendingRedirect && pendingRedirect.startsWith('/')) {
@@ -50,7 +51,7 @@ if (loginForm && loginDialog) {
         location.href = target;
       }
     } catch (err) {
-      toast(err.message || 'Неверный пароль', 'error');
+      toast(err.message || t('auth_bad_pass'), 'error');
     }
   });
 }
@@ -60,7 +61,7 @@ async function checkAuth() {
     authState = await api('/api/auth/status');
     renderAuthUI();
   } catch {
-    // В случае ошибки оставляем поведение по умолчанию
+    // Keep default behavior on network failure
   }
 }
 
@@ -73,28 +74,28 @@ function renderAuthUI() {
   }
 
   if (authState.is_authenticated) {
-    const userLabel = h('span', { class: 'muted', style: 'font-size: 0.85rem' }, `👤 ${authState.username || 'Автор'}`);
+    const userLabel = h('span', { class: 'muted', style: 'font-size: 0.85rem' }, `👤 ${authState.username || t('auth_author_default')}`);
     const logoutBtn = h('button', {
       class: 'btn btn-ghost btn-sm',
       onclick: async () => {
         await api('/api/auth/logout', { method: 'POST' });
-        toast('Вы вышли из режима автора', 'info');
+        toast(t('auth_logged_out'), 'info');
         await checkAuth();
       },
-    }, 'Выйти');
+    }, t('auth_logout_btn'));
     container.replaceChildren(userLabel, logoutBtn);
   } else {
     const loginBtn = h('button', {
       class: 'btn btn-ghost btn-sm',
       onclick: () => openLoginDialog(),
-    }, '🔑 Вход для автора');
+    }, t('auth_login_btn'));
     container.replaceChildren(loginBtn);
   }
 }
 
 function openDialog() {
   if (authState.auth_required && !authState.is_authenticated) {
-    toast('Для создания квестов требуется войти в систему как автор', 'info');
+    toast(t('auth_need_login_create'), 'info');
     openLoginDialog();
     return;
   }
@@ -104,77 +105,77 @@ function openDialog() {
 }
 
 function questCard(q) {
-  const scenes = `📜 ${q.scene_count} ${plural(q.scene_count, ['сцена', 'сцены', 'сцен'])}`;
+  const scenes = `📜 ${q.scene_count} ${plural(q.scene_count, ['сцена', 'сцены', 'сцен'], ['scene', 'scenes'])}`;
   return h('article', { class: 'card quest-card', dataset: { questId: q.id } },
     h('div', { style: 'display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem;' },
       h('h3', { class: 'quest-card-title', style: 'margin: 0;' }, q.title),
-      h('span', { class: 'chip', title: `ID квеста в базе: ${q.id}`, style: 'font-size: 0.75rem; opacity: 0.7;' }, `#${q.id}`),
+      h('span', { class: 'chip', title: t('cat_quest_id_title', q.id), style: 'font-size: 0.75rem; opacity: 0.7;' }, `#${q.id}`),
     ),
-    h('p', { class: 'quest-card-desc' }, q.description || 'Автор пока не добавил описание.'),
+    h('p', { class: 'quest-card-desc' }, q.description || t('cat_no_desc')),
     h('div', { class: 'quest-card-meta' },
       h('span', { class: 'chip' }, scenes),
-      q.win_endings ? h('span', { class: 'chip', title: 'Победные концовки' }, `🏆 ${q.win_endings}`) : null,
-      q.lose_endings ? h('span', { class: 'chip', title: 'Ловушки и поражения' }, `💀 ${q.lose_endings}`) : null,
+      q.win_endings ? h('span', { class: 'chip', title: t('cat_win_endings_title') }, `🏆 ${q.win_endings}`) : null,
+      q.lose_endings ? h('span', { class: 'chip', title: t('cat_lose_endings_title') }, `💀 ${q.lose_endings}`) : null,
       Object.keys(q.initial_variables || {}).length
-        ? h('span', { class: 'chip', title: 'Переменные' }, `📊 ${Object.keys(q.initial_variables).length}`)
+        ? h('span', { class: 'chip', title: t('cat_vars_title') }, `📊 ${Object.keys(q.initial_variables).length}`)
         : null,
     ),
     h('div', { class: 'quest-card-actions' },
       h('div', { class: 'quest-card-actions-main' },
         q.playable
-          ? h('a', { class: 'btn btn-primary', href: `/play/${q.id}` }, '▶ Играть')
-          : h('span', { class: 'btn btn-primary disabled', title: 'Не выбрана стартовая сцена' }, '▶ Играть'),
+          ? h('a', { class: 'btn btn-primary', href: `/play/${q.id}` }, t('cat_play_btn'))
+          : h('span', { class: 'btn btn-primary disabled', title: t('cat_play_disabled_title') }, t('cat_play_btn')),
         h('a', {
           class: 'btn btn-ghost',
           href: `/builder/${q.id}`,
           onclick: (e) => {
             if (authState.auth_required && !authState.is_authenticated) {
               e.preventDefault();
-              toast('Для перехода в конструктор войдите как автор', 'info');
+              toast(t('auth_need_login_builder'), 'info');
               openLoginDialog(`/builder/${q.id}`);
             }
           },
-        }, '✎ Конструктор'),
+        }, t('cat_builder_btn')),
       ),
       h('div', { class: 'quest-card-actions-sub' },
-        h('a', { class: 'btn btn-ghost btn-sm', href: `/api/quests/${q.id}/export/html`, title: 'Скачать автономную игру для запуска без сервера' }, '📦 Офлайн HTML'),
-        h('a', { class: 'btn btn-ghost btn-sm', href: `/api/quests/${q.id}/export/json`, title: 'Экспорт квеста в JSON' }, '💾 JSON'),
+        h('a', { class: 'btn btn-ghost btn-sm', href: `/api/quests/${q.id}/export/html`, title: t('cat_offline_html_title') }, t('cat_offline_html_btn')),
+        h('a', { class: 'btn btn-ghost btn-sm', href: `/api/quests/${q.id}/export/json`, title: t('cat_export_json_title') }, '💾 JSON'),
         h('button', {
           class: 'btn btn-ghost btn-sm btn-icon-sub',
-          title: 'Создать копию квеста',
-          'aria-label': 'Создать копию квеста',
+          title: t('cat_dup_title'),
+          'aria-label': t('cat_dup_title'),
           onclick: async () => {
             if (authState.auth_required && !authState.is_authenticated) {
-              toast('Для дублирования квеста войдите как автор', 'info');
+              toast(t('auth_need_login_dup'), 'info');
               openLoginDialog();
               return;
             }
             try {
               const dup = await api(`/api/quests/${q.id}/duplicate`, { method: 'POST' });
-              toast(`Создана копия: «${dup.title}»`, 'success');
+              toast(t('cat_dup_success', dup.title), 'success');
               await load();
             } catch (err) {
-              toast(`Ошибка копирования: ${err.message}`, 'error');
+              toast(t('cat_dup_error', err.message), 'error');
             }
           },
         }, '📋'),
         h('button', {
           class: 'btn btn-danger btn-sm btn-icon-sub',
-          title: 'Удалить квест',
-          'aria-label': 'Удалить квест',
+          title: t('cat_del_title'),
+          'aria-label': t('cat_del_title'),
           onclick: async () => {
             if (authState.auth_required && !authState.is_authenticated) {
-              toast('Для удаления квестов требуется войти в систему как автор', 'info');
+              toast(t('auth_need_login_del'), 'info');
               openLoginDialog();
               return;
             }
-            if (!confirm(`Вы действительно хотите удалить квест «${q.title}» (#${q.id}) со всеми сценами?`)) return;
+            if (!confirm(t('cat_del_confirm', q.title, q.id))) return;
             try {
               await api(`/api/quests/${q.id}`, { method: 'DELETE' });
-              toast(`Квест «${q.title}» удалён`, 'info');
+              toast(t('cat_del_success', q.title), 'info');
               await load();
             } catch (err) {
-              toast(`Не удалось удалить квест: ${err.message}`, 'error');
+              toast(t('cat_del_error', err.message), 'error');
             }
           },
         }, '🗑'),
@@ -189,10 +190,10 @@ function renderFilteredQuests() {
     ? allQuests.filter((q) => q.title.toLowerCase().includes(query) || (q.description || '').toLowerCase().includes(query))
     : allQuests;
 
-  countEl.textContent = filtered.length ? `${filtered.length} ${plural(filtered.length, ['квест', 'квеста', 'квестов'])}` : '';
+  countEl.textContent = filtered.length ? `${filtered.length} ${plural(filtered.length, ['квест', 'квеста', 'квестов'], ['quest', 'quests'])}` : '';
   if (!filtered.length) {
     grid.replaceChildren(h('div', { class: 'card empty' },
-      query ? 'По запросу ничего не найдено.' : 'Пока нет ни одного квеста. Станьте первым автором!',
+      query ? t('cat_empty_search') : t('cat_empty_all'),
     ));
     return;
   }
@@ -202,9 +203,10 @@ function renderFilteredQuests() {
 async function load() {
   try {
     allQuests = await api('/api/quests');
+    hasLoaded = true;
     renderFilteredQuests();
   } catch (e) {
-    grid.replaceChildren(h('div', { class: 'card empty' }, `Не удалось загрузить квесты: ${e.message}`));
+    grid.replaceChildren(h('div', { class: 'card empty' }, t('cat_load_error', e.message)));
   }
 }
 
@@ -237,7 +239,7 @@ document.getElementById('cancel-create').addEventListener('click', () => dialog.
 if (importBtn && importInput) {
   importBtn.addEventListener('click', () => {
     if (authState.auth_required && !authState.is_authenticated) {
-      toast('Для импорта квестов требуется войти в систему как автор', 'info');
+      toast(t('auth_need_login_import'), 'info');
       openLoginDialog();
       return;
     }
@@ -250,10 +252,10 @@ if (importBtn && importInput) {
       const text = await file.text();
       const payload = JSON.parse(text);
       const imported = await api('/api/quests/import', { method: 'POST', body: payload });
-      toast(`Квест «${imported.title}» успешно импортирован!`, 'success');
+      toast(t('cat_import_success', imported.title), 'success');
       location.href = `/builder/${imported.id}`;
     } catch (err) {
-      toast(`Ошибка импорта: ${err.message}`, 'error');
+      toast(t('cat_import_error', err.message), 'error');
     } finally {
       importInput.value = '';
     }
@@ -270,18 +272,21 @@ if (initParams.has('new')) {
   openLoginDialog(nextUrl);
 }
 
-// Перезагрузка при возврате назад/вперёд по истории (BFCache)
 window.addEventListener('pageshow', () => {
   load();
   checkAuth();
 });
 
-// Автоматическое обновление данных при переключении на вкладку
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
     load();
     checkAuth();
   }
+});
+
+window.addEventListener('tq:langchange', () => {
+  renderAuthUI();
+  if (hasLoaded) renderFilteredQuests();
 });
 
 initTheme();

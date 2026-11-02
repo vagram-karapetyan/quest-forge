@@ -1,18 +1,19 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Text Quest — текстовые квесты</title>
+  <title data-i18n="cat_page_title">Quest Forge — Interactive Story Engine</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔭</text></svg>">
   <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
   <header class="topbar">
-    <a href="/" class="brand">✦ Text Quest</a>
+    <a href="/" class="brand">✦ Quest Forge</a>
     <div class="topbar-title"></div>
     <div class="topbar-actions">
-      <button class="btn btn-ghost btn-sm" id="theme-toggle" title="Сменить тему оформления">🎨 Тема</button>
+      <button class="btn btn-ghost btn-sm" id="lang-toggle" data-i18n-title="lang_btn_title" title="Switch interface language (EN / RU)">🌐 EN</button>
+      <button class="btn btn-ghost btn-sm" id="theme-toggle" data-i18n-title="theme_btn_title" title="Switch color theme">🎨 Night</button>
       <div id="auth-actions" style="display: inline-flex; align-items: center; gap: 0.5rem;"></div>
       <a href="/docs" class="btn btn-ghost btn-sm" target="_blank" rel="noopener">API</a>
     </div>
@@ -21,63 +22,63 @@
   <main class="catalog">
     <section class="hero">
       <div class="hero-icon">🔭</div>
-      <h1>Текстовые квесты</h1>
-      <p>Проходите атмосферные истории, где каждое решение имеет значение, — или создайте свою собственную с визуальным графом, инвентарём и переменными.</p>
+      <h1 data-i18n="cat_hero_title">Quest Forge</h1>
+      <p data-i18n="cat_hero_sub">Play atmospheric interactive stories where every choice matters — or forge your own non-linear adventures with a visual 2D node graph, inventory, and variables.</p>
       <div class="hero-actions">
-        <button class="btn btn-primary btn-lg" id="create-btn">＋ Создать новый квест</button>
-        <button class="btn btn-ghost btn-lg" id="import-btn">📥 Импортировать JSON</button>
+        <button class="btn btn-primary btn-lg" id="create-btn" data-i18n="cat_create_btn">＋ Create New Quest</button>
+        <button class="btn btn-ghost btn-lg" id="import-btn" data-i18n="cat_import_btn">📥 Import JSON</button>
         <input type="file" id="import-input" accept=".json,application/json" hidden>
       </div>
     </section>
 
     <section>
       <div class="section-head">
-        <h2>Каталог квестов</h2>
+        <h2 data-i18n="cat_section_title">Quest Catalog</h2>
         <div style="display: flex; gap: 10px; align-items: center;">
-          <input class="input" id="search-input" placeholder="🔍 Поиск по названию..." style="width: 240px; padding: 6px 12px; font-size: 0.9rem;" autocomplete="off">
+          <input class="input" id="search-input" data-i18n-placeholder="cat_search_placeholder" placeholder="🔍 Search by title..." style="width: 240px; padding: 6px 12px; font-size: 0.9rem;" autocomplete="off">
           <span class="muted" id="quest-count"></span>
         </div>
       </div>
       <div class="quest-grid" id="quest-grid">
-        <div class="card empty">Загрузка квестов…</div>
+        <div class="card empty" data-i18n="cat_loading">Loading quests…</div>
       </div>
     </section>
   </main>
 
   <dialog class="modal" id="new-quest-dialog">
     <form class="modal-body" id="new-quest-form">
-      <h2>Новый квест</h2>
-      <p>Придумайте название — сцены, 2D карту и выборы добавите в конструкторе.</p>
+      <h2 data-i18n="modal_new_title">New Quest</h2>
+      <p data-i18n="modal_new_sub">Choose a title — you will add scenes, the 2D node map, and choices inside the builder.</p>
       <label class="field">
-        <span class="field-label">Название</span>
-        <input class="input" name="title" required maxlength="200" placeholder="Например: «Побег из замка теней»" autocomplete="off">
+        <span class="field-label" data-i18n="modal_new_name_label">Title</span>
+        <input class="input" name="title" required maxlength="200" data-i18n-placeholder="modal_new_name_placeholder" placeholder="e.g., “Escape from the Shadow Citadel”" autocomplete="off">
       </label>
       <label class="field">
-        <span class="field-label">Короткое описание</span>
-        <textarea class="input" name="description" rows="3" maxlength="5000" placeholder="О чём ваша история? Это увидят игроки в каталоге."></textarea>
+        <span class="field-label" data-i18n="modal_new_desc_label">Short Description</span>
+        <textarea class="input" name="description" rows="3" maxlength="5000" data-i18n-placeholder="modal_new_desc_placeholder" placeholder="What is your story about? Players will see this in the catalog."></textarea>
       </label>
       <div class="modal-actions">
-        <button type="button" class="btn btn-ghost" id="cancel-create">Отмена</button>
-        <button type="submit" class="btn btn-primary">Создать и открыть конструктор</button>
+        <button type="button" class="btn btn-ghost" id="cancel-create" data-i18n="modal_cancel">Cancel</button>
+        <button type="submit" class="btn btn-primary" data-i18n="modal_create_submit">Create & Open Builder</button>
       </div>
     </form>
   </dialog>
 
   <dialog class="modal" id="login-dialog">
     <form class="modal-body" id="login-form">
-      <h2>🔑 Вход для автора</h2>
-      <p>Введите учетные данные для управления и создания квестов.</p>
+      <h2 data-i18n="modal_login_title">🔑 Author Login</h2>
+      <p data-i18n="modal_login_sub">Enter your credentials to create and manage quests.</p>
       <label class="field">
-        <span class="field-label">Логин (по умолчанию: admin)</span>
+        <span class="field-label" data-i18n="modal_login_user_label">Username (default: admin)</span>
         <input class="input" name="username" placeholder="admin" autocomplete="username">
       </label>
       <label class="field">
-        <span class="field-label">Пароль</span>
-        <input class="input" type="password" name="password" required placeholder="Введите пароль" autocomplete="current-password">
+        <span class="field-label" data-i18n="modal_login_pass_label">Password</span>
+        <input class="input" type="password" name="password" required data-i18n-placeholder="modal_login_pass_placeholder" placeholder="Enter password" autocomplete="current-password">
       </label>
       <div class="modal-actions">
-        <button type="button" class="btn btn-ghost" id="cancel-login">Отмена</button>
-        <button type="submit" class="btn btn-primary">Войти</button>
+        <button type="button" class="btn btn-ghost" id="cancel-login" data-i18n="modal_cancel">Cancel</button>
+        <button type="submit" class="btn btn-primary" data-i18n="modal_login_submit">Sign In</button>
       </div>
     </form>
   </dialog>

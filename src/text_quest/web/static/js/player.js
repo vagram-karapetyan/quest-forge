@@ -1,4 +1,4 @@
-import { api, h, idFromPath, initTheme, itemIcon, toast } from './api.js';
+import { api, h, idFromPath, initTheme, itemIcon, t, toast, translateServerText } from './api.js';
 
 const questId = idFromPath();
 const STORAGE_KEY = `tq_session_${questId}`;
@@ -30,20 +30,25 @@ const els = {
   audioToggle: document.getElementById('audio-toggle'),
 };
 
-const ENDINGS = {
-  win: { icon: '🏆', title: 'Победа!', subtitle: 'Вы раскрыли эту историю.' },
-  lose: { icon: '💀', title: 'Поражение', subtitle: 'Здесь ваш путь оборвался. Попробуйте иначе.' },
-  end: { icon: '📜', title: 'Конец истории', subtitle: 'Дальше дороги нет.' },
-};
+function getEndingMeta(status) {
+  if (status === 'win') {
+    return { icon: '🏆', title: t('play_end_win_title'), subtitle: t('play_end_win_sub') };
+  }
+  if (status === 'lose') {
+    return { icon: '💀', title: t('play_end_lose_title'), subtitle: t('play_end_lose_sub') };
+  }
+  return { icon: '📜', title: t('play_end_end_title'), subtitle: t('play_end_end_sub') };
+}
 
 let state = null;
+let fatalMessage = null;
 let busy = false;
 let typing = null;
 let renderToken = 0;
 let currentAudioUrl = '';
 let audioMuted = false;
 
-// ---------- Безопасный Markdown парсер ----------
+// ---------- Safe Markdown Parser ----------
 
 function escapeHtml(str) {
   return String(str ?? '')
@@ -164,7 +169,7 @@ function renderMarkdown(md = '') {
   return blocks.join('') || '<p></p>';
 }
 
-// ---------- эффект печатной машинки ----------
+// ---------- Typewriter Effect ----------
 
 function finishTyping() {
   if (typing) typing.finish();
@@ -231,11 +236,11 @@ function typeText(text, instant) {
   });
 }
 
-// ---------- отрисовка ----------
+// ---------- Rendering ----------
 
 function renderInventory(items, newItems = []) {
   if (!items.length) {
-    els.inventory.replaceChildren(h('li', { class: 'inv-empty' }, 'Пока пусто'));
+    els.inventory.replaceChildren(h('li', { class: 'inv-empty' }, t('play_inv_empty')));
     return;
   }
   els.inventory.replaceChildren(...items.map((item) => h('li',
@@ -246,7 +251,7 @@ function renderInventory(items, newItems = []) {
 }
 
 function formatVarValue(val) {
-  if (typeof val === 'boolean') return val ? 'да' : 'нет';
+  if (typeof val === 'boolean') return val ? t('play_bool_true') : t('play_bool_false');
   return String(val);
 }
 
@@ -265,7 +270,7 @@ function renderVariables(vars = {}) {
 
 function updateAudioButton() {
   if (!els.audioToggle) return;
-  els.audioToggle.textContent = els.audio.paused ? '🔇 Вкл. звук' : '🔊 Музыка';
+  els.audioToggle.textContent = els.audio.paused ? t('play_audio_off') : t('play_audio_on');
 }
 
 function renderMedia(scene) {
@@ -309,8 +314,8 @@ els.sceneImage?.addEventListener('error', () => {
 });
 
 function renderNotice(s) {
-  const lines = (s.new_items || []).map((item) => `${itemIcon(item)} Получен предмет: «${item}»`);
-  if (s.message) lines.push(s.message);
+  const lines = (s.new_items || []).map((item) => `${itemIcon(item)} ${t('play_item_received', item)}`);
+  if (s.message) lines.push(translateServerText(s.message));
   if (!lines.length) {
     els.notice.hidden = true;
     return;
@@ -323,17 +328,17 @@ function renderNotice(s) {
 }
 
 function endingPanel(s) {
-  const e = ENDINGS[s.status] || ENDINGS.end;
+  const e = getEndingMeta(s.status);
   return h('div', { class: `ending ending-${s.status}` },
     h('div', { class: 'ending-icon' }, e.icon),
     h('div', { class: 'ending-title' }, e.title),
     h('div', { class: 'ending-sub' }, e.subtitle),
     h('div', { class: 'ending-stats' },
-      `Шагов: ${s.steps} · Открыто сцен: ${s.visited} из ${s.total_scenes} · Предметов: ${s.inventory.length}`),
+      t('play_end_stats', s.steps, s.visited, s.total_scenes, s.inventory.length)),
     h('div', { class: 'ending-actions' },
-      h('button', { class: 'btn btn-primary', onclick: startNew }, '↺ Сыграть ещё раз'),
-      s.can_undo ? h('button', { class: 'btn btn-ghost', onclick: undoStep }, '↶ Отменить ход') : null,
-      h('a', { class: 'btn btn-ghost', href: '/' }, 'К каталогу квестов'),
+      h('button', { class: 'btn btn-primary', onclick: startNew }, t('play_end_again')),
+      s.can_undo ? h('button', { class: 'btn btn-ghost', onclick: undoStep }, t('play_end_undo')) : null,
+      h('a', { class: 'btn btn-ghost', href: '/' }, t('play_end_catalog')),
     ),
   );
 }
@@ -345,9 +350,10 @@ function renderChoices(s) {
   }
   els.choices.replaceChildren(...s.choices.map((c, i) => {
     const locked = !c.available;
+    const lockText = c.lock_reason ? translateServerText(c.lock_reason) : null;
     let req = null;
-    if (locked && c.lock_reason) {
-      req = h('span', { class: 'choice-req' }, `🔒 ${c.lock_reason}`);
+    if (locked && lockText) {
+      req = h('span', { class: 'choice-req' }, `🔒 ${lockText}`);
     } else if (c.required_item) {
       req = h('span', { class: 'choice-req unlocked' }, `${itemIcon(c.required_item)} ${c.required_item}`);
     }
@@ -355,7 +361,7 @@ function renderChoices(s) {
       class: `choice-btn${locked ? ' locked' : ''}`,
       disabled: locked,
       style: `animation-delay: ${i * 70}ms`,
-      title: locked ? (c.lock_reason || 'Выбор заблокирован') : null,
+      title: locked ? (lockText || t('play_choice_locked')) : null,
       onclick: () => choose(c),
     },
     h('span', { class: 'choice-key' }, i < 9 ? String(i + 1) : '•'),
@@ -368,7 +374,7 @@ function renderLogModal(s) {
   if (!els.logContent) return;
   const entries = s.log || [];
   if (!entries.length) {
-    els.logContent.replaceChildren(h('p', { class: 'muted' }, 'Вы пока не сделали ни одного выбора.'));
+    els.logContent.replaceChildren(h('p', { class: 'muted' }, t('play_log_empty')));
     return;
   }
   els.logContent.replaceChildren(h('ol', { style: 'padding-left: 20px; display: flex; flex-direction: column; gap: 8px;' },
@@ -380,15 +386,16 @@ function renderLogModal(s) {
 }
 
 async function render(s, { instant = false } = {}) {
+  fatalMessage = null;
   const prev = state;
   state = s;
   const token = ++renderToken;
 
-  document.title = `${s.quest_title} — Text Quest`;
+  document.title = t('play_doc_title', s.quest_title);
   els.questTitle.textContent = s.quest_title;
   els.card.dataset.status = s.status;
   els.steps.textContent = s.steps;
-  els.visited.textContent = `${s.visited} из ${s.total_scenes}`;
+  els.visited.textContent = t('play_visited_of', s.visited, s.total_scenes);
   if (els.undoBtn) {
     els.undoBtn.disabled = !s.can_undo;
   }
@@ -417,17 +424,18 @@ async function render(s, { instant = false } = {}) {
 function showFatal(message) {
   finishTyping();
   state = null;
+  fatalMessage = message;
   els.card.dataset.status = 'lose';
-  els.sceneTitle.textContent = 'Не удалось начать игру';
-  els.text.textContent = message;
+  els.sceneTitle.textContent = t('play_fatal_title');
+  els.text.textContent = translateServerText(message);
   els.notice.hidden = true;
   els.choices.replaceChildren(h('div', { class: 'ending-actions' },
-    h('a', { class: 'btn btn-primary', href: `/builder/${questId}` }, '✎ Открыть конструктор'),
-    h('a', { class: 'btn btn-ghost', href: '/' }, 'К каталогу'),
+    h('a', { class: 'btn btn-primary', href: `/builder/${questId}` }, t('play_fatal_open_builder')),
+    h('a', { class: 'btn btn-ghost', href: '/' }, t('play_fatal_catalog')),
   ));
 }
 
-// ---------- действия ----------
+// ---------- Actions ----------
 
 async function startNew() {
   try {
@@ -446,10 +454,10 @@ async function undoStep() {
   busy = true;
   try {
     const s = await api(`/api/game/${state.session_id}/undo`, { method: 'POST' });
-    toast('Ход отменён', 'info');
+    toast(t('play_undo_toast'), 'info');
     await render(s, { instant: true });
   } catch (e) {
-    toast(`Не удалось отменить ход: ${e.message}`, 'error');
+    toast(t('play_undo_err', e.message), 'error');
   } finally {
     busy = false;
   }
@@ -478,12 +486,27 @@ async function choose(choice) {
   }
 }
 
+window.addEventListener('tq:langchange', () => {
+  updateAudioButton();
+  if (state) {
+    document.title = t('play_doc_title', state.quest_title);
+    els.visited.textContent = t('play_visited_of', state.visited, state.total_scenes);
+    renderInventory(state.inventory, state.new_items);
+    renderVariables(state.variables);
+    renderNotice(state);
+    renderLogModal(state);
+    renderChoices(state);
+  } else if (fatalMessage) {
+    showFatal(fatalMessage);
+  }
+});
+
 async function init() {
+  initTheme();
   if (!questId) {
-    showFatal('Некорректный адрес квеста.');
+    showFatal(t('play_fatal_bad_url'));
     return;
   }
-  initTheme();
   els.builderLink.href = `/builder/${questId}`;
   els.exportHtml.href = `/api/quests/${questId}/export/html`;
 
@@ -510,7 +533,7 @@ async function init() {
         await render(s, { instant: true });
         return;
       }
-    } catch { /* сессия устарела */ }
+    } catch { /* session expired */ }
     localStorage.removeItem(STORAGE_KEY);
   }
   await startNew();
@@ -518,7 +541,7 @@ async function init() {
 
 els.card.addEventListener('click', () => finishTyping());
 els.restart.addEventListener('click', () => {
-  if (state && state.status === 'playing' && state.steps > 0 && !confirm('Начать квест заново? Текущий прогресс будет потерян.')) return;
+  if (state && state.status === 'playing' && state.steps > 0 && !confirm(t('play_restart_confirm'))) return;
   startNew();
 });
 

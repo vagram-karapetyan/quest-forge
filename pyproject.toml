@@ -1,7 +1,7 @@
 [project]
 name = "text-quest"
 version = "0.3.0"
-description = "Веб-платформа и визуальный конструктор (Twine-like) для создания и прохождения нелинейных текстовых квестов"
+description = "Quest Forge — visual interactive story engine & node-based quest constructor built with FastAPI and Vanilla JS"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.11"
