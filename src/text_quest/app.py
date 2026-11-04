@@ -47,7 +47,11 @@ async def rate_limit_middleware(request: Request, call_next):
     """Simple in-memory rate limiting to protect API endpoints from overload."""
     path = request.url.path
     if path.startswith("/api/"):
-        client_ip = request.client.host if request.client else "127.0.0.1"
+        forwarded = request.headers.get("x-forwarded-for")
+        if forwarded:
+            client_ip = forwarded.split(",")[0].strip()
+        else:
+            client_ip = request.client.host if request.client else "127.0.0.1"
         now = time.monotonic()
         recent = [t for t in _RATE_LIMIT_STORE[client_ip] if now - t < 60]
         if len(recent) >= _MAX_REQUESTS_PER_MINUTE:
@@ -58,6 +62,12 @@ async def rate_limit_middleware(request: Request, call_next):
             )
         recent.append(now)
         _RATE_LIMIT_STORE[client_ip] = recent
+
+        # Prune inactive IPs periodically to prevent memory growth
+        if len(_RATE_LIMIT_STORE) > 500:
+            stale_ips = [ip for ip, times in _RATE_LIMIT_STORE.items() if not times or now - times[-1] >= 60]
+            for ip in stale_ips:
+                del _RATE_LIMIT_STORE[ip]
 
     response = await call_next(request)
     return response

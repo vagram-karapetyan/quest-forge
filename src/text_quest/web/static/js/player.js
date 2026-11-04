@@ -142,7 +142,7 @@ function renderMarkdown(md = '') {
       blocks.push(`<h${lvl}>${formatInline(hMatch[2].trim())}</h${lvl}>`);
       continue;
     }
-    if (/^(?:---|\*\*\*|___)\s*$/.test(trimmed)) {
+    if (/^(?:-{3,}|\*{3,}|_{3,})\s*$/.test(trimmed)) {
       flushAll();
       blocks.push('<hr>');
       continue;

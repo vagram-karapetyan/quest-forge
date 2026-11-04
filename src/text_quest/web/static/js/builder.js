@@ -949,7 +949,10 @@ function switchView(mode) {
 
 // ================= Actions =================
 
-function selectScene(id, { fromCanvasNode = false } = {}) {
+async function selectScene(id, { fromCanvasNode = false } = {}) {
+  if (state.currentId !== id && pending.size) {
+    await flushPending();
+  }
   state.currentId = id ?? null;
   history.replaceState(null, '', id ? `#scene-${id}` : location.pathname);
   renderSceneList();

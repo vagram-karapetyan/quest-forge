@@ -22,7 +22,7 @@ class Quest(SQLModel, table=True):
     # Начальные переменные квеста, например {"hp": 100, "gold": 0}
     initial_variables: dict[str, Any] = Field(
         default_factory=dict,
-        sa_column=Column(JSON, nullable=False, default={}),
+        sa_column=Column(JSON, nullable=False, default=dict),
     )
 
 
@@ -53,12 +53,12 @@ class Choice(SQLModel, table=True):
     # Расширенные условия (список словарей с условиями)
     conditions: list[dict[str, Any]] = Field(
         default_factory=list,
-        sa_column=Column(JSON, nullable=False, default=[]),
+        sa_column=Column(JSON, nullable=False, default=list),
     )
     # Действия над переменными и предметами (например {"add": {"gold": 10}, "set": {"visited": True}})
     actions: dict[str, Any] = Field(
         default_factory=dict,
-        sa_column=Column(JSON, nullable=False, default={}),
+        sa_column=Column(JSON, nullable=False, default=dict),
     )
 
 
@@ -69,18 +69,18 @@ class GameSession(SQLModel, table=True):
     inventory: list[str] = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
     variables: dict[str, Any] = Field(
         default_factory=dict,
-        sa_column=Column(JSON, nullable=False, default={}),
+        sa_column=Column(JSON, nullable=False, default=dict),
     )
     history: list[int] = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
     # Снапшоты предыдущих ходов для функции Undo/назад
     snapshots: list[dict[str, Any]] = Field(
         default_factory=list,
-        sa_column=Column(JSON, nullable=False, default=[]),
+        sa_column=Column(JSON, nullable=False, default=list),
     )
     # Журнал сделанных выборов [(scene_id, choice_text)]
     log: list[dict[str, Any]] = Field(
         default_factory=list,
-        sa_column=Column(JSON, nullable=False, default=[]),
+        sa_column=Column(JSON, nullable=False, default=list),
     )
     steps: int = Field(default=0)
     created_at: datetime = Field(default_factory=_now)

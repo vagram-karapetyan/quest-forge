@@ -142,9 +142,9 @@ class QuestDetail(QuestRead):
 
 
 class ChoiceImport(BaseModel):
-    id: int | None = None
+    id: Any = None
     text: str = Field(default="", max_length=500)
-    target_scene_id: int | None = None
+    target_scene_id: Any = None
     required_item: str | None = Field(default=None, max_length=100)
     item_given: str | None = Field(default=None, max_length=100)
     conditions: list[dict[str, Any]] = Field(default_factory=list)
@@ -174,7 +174,7 @@ class ChoiceImport(BaseModel):
 
 
 class SceneImport(BaseModel):
-    id: int | None = None
+    id: Any = None
     title: str = Field(default="", max_length=200)
     text: str = Field(default="", max_length=20000)
     ending: Ending | None = None
@@ -200,7 +200,7 @@ class SceneImport(BaseModel):
 class QuestImport(BaseModel):
     title: str = Field(default="Импортированный квест", max_length=200)
     description: str = Field(default="", max_length=5000)
-    start_scene_id: int | None = None
+    start_scene_id: Any = None
     initial_variables: dict[str, Any] = Field(default_factory=dict)
     scenes: list[SceneImport] = Field(default_factory=list)
 

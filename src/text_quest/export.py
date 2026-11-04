@@ -382,7 +382,7 @@ __CSS_CONTENT__
           blocks.push(`<h${lvl}>${formatInline(hMatch[2].trim())}</h${lvl}>`);
           continue;
         }
-        if (/^(?:---|\*\*\*|___)\s*$/.test(trimmed)) {
+        if (/^(?:-{3,}|\*{3,}|_{3,})\s*$/.test(trimmed)) {
           flushAll();
           blocks.push('<hr>');
           continue;
@@ -433,13 +433,27 @@ __CSS_CONTENT__
         } else if (cond.type === 'var' || cond.var) {
           const varName = String(cond.var || '').trim();
           if (!varName) continue;
-          const cur = varName in vars ? vars[varName] : 0;
           const val = cond.value;
+          const cur = varName in vars ? vars[varName] : (typeof val === 'boolean' ? false : (Number.isFinite(Number(val)) ? 0 : ''));
           const op = cond.op || '==';
           let met = false;
-          if (op === '==') met = cur == val;
-          else if (op === '!=') met = cur != val;
-          else if (op === '>') met = Number(cur) > Number(val);
+          if (op === '==' || op === '!=') {
+            let eq = false;
+            if (typeof cur === 'boolean' || typeof val === 'boolean') {
+              const toBool = (x) => {
+                if (typeof x === 'boolean') return x;
+                if (typeof x === 'number') return Boolean(x);
+                const s = String(x ?? '').trim().toLowerCase();
+                return s === 'true' || s === '1' || s === 'yes' || s === 'да';
+              };
+              eq = toBool(cur) === toBool(val);
+            } else if (Number.isFinite(Number(cur)) && Number.isFinite(Number(val))) {
+              eq = Number(cur) === Number(val);
+            } else {
+              eq = String(cur ?? '') === String(val ?? '');
+            }
+            met = op === '==' ? eq : !eq;
+          } else if (op === '>') met = Number(cur) > Number(val);
           else if (op === '>=') met = Number(cur) >= Number(val);
           else if (op === '<') met = Number(cur) < Number(val);
           else if (op === '<=') met = Number(cur) <= Number(val);
@@ -726,9 +740,11 @@ __CSS_CONTENT__
             <div class="ending-stats">${escapeHtml(t('end_stats', state.steps, state.history.length, QUEST.scenes.length, state.inventory.length))}</div>
             <div class="ending-actions">
               <button class="btn btn-primary" id="end-restart">${escapeHtml(t('play_again'))}</button>
+              ${state.snapshots && state.snapshots.length > 0 ? `<button class="btn btn-ghost" id="end-undo">${escapeHtml(t('undo_btn'))}</button>` : ''}
             </div>
           </div>`;
         document.getElementById('end-restart')?.addEventListener('click', restart);
+        document.getElementById('end-undo')?.addEventListener('click', undoStep);
         return;
       }
 
@@ -783,15 +799,23 @@ __CSS_CONTENT__
       });
 
       const newItems = [];
-      const giveAct = c.actions && typeof c.actions.give_item === 'string' ? c.actions.give_item.trim() : null;
-      const gives = c.item_given || giveAct;
-      if (gives && !state.inventory.includes(gives)) {
-        state.inventory.push(gives);
-        newItems.push(gives);
+      const itemsToGive = [];
+      if (c.item_given) itemsToGive.push(c.item_given);
+      const giveAct = c.actions && c.actions.give_item;
+      if (typeof giveAct === 'string' && giveAct.trim()) itemsToGive.push(giveAct.trim());
+      else if (Array.isArray(giveAct)) itemsToGive.push(...giveAct.map(x => String(x).trim()).filter(Boolean));
+      for (const gives of itemsToGive) {
+        if (!state.inventory.includes(gives)) {
+          state.inventory.push(gives);
+          newItems.push(gives);
+        }
       }
-      const takeAct = c.actions && typeof c.actions.take_item === 'string' ? c.actions.take_item.trim() : null;
-      if (takeAct && state.inventory.includes(takeAct)) {
-        state.inventory = state.inventory.filter(i => i !== takeAct);
+      const itemsToTake = [];
+      const takeAct = c.actions && c.actions.take_item;
+      if (typeof takeAct === 'string' && takeAct.trim()) itemsToTake.push(takeAct.trim());
+      else if (Array.isArray(takeAct)) itemsToTake.push(...takeAct.map(x => String(x).trim()).filter(Boolean));
+      if (itemsToTake.length) {
+        state.inventory = state.inventory.filter(i => !itemsToTake.includes(i));
       }
       if (c.actions && typeof c.actions === 'object') {
         if (c.actions.set && typeof c.actions.set === 'object') {

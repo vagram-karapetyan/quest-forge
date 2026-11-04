@@ -62,17 +62,19 @@ def analyze_quest(quest: Quest, scenes: list[Scene], choices: list[Choice]) -> V
             if choice.target_scene_id in by_id:
                 stack.append(choice.target_scene_id)
 
-    given_items: set[str] = set()
+    reachable_given_items: set[str] = set()
+    all_given_items: set[str] = set()
     all_items: set[str] = set()
     all_vars = set((quest.initial_variables or {}).keys())
 
     for choice in choices:
         parent_scene = by_id.get(choice.scene_id)
         is_active_scene = parent_scene is not None and not parent_scene.ending
+        is_reachable = is_active_scene and (start_id is None or parent_scene.id in reachable)
 
+        items_given_here: list[str] = []
         if choice.item_given:
-            if is_active_scene:
-                given_items.add(choice.item_given)
+            items_given_here.append(choice.item_given)
             all_items.add(choice.item_given)
         if choice.required_item:
             all_items.add(choice.required_item)
@@ -81,15 +83,29 @@ def analyze_quest(quest: Quest, scenes: list[Scene], choices: list[Choice]) -> V
         if isinstance(acts, dict):
             give_act = acts.get("give_item")
             if isinstance(give_act, str) and give_act.strip():
-                if is_active_scene:
-                    given_items.add(give_act.strip())
+                items_given_here.append(give_act.strip())
                 all_items.add(give_act.strip())
+            elif isinstance(give_act, list):
+                for gitm in give_act:
+                    if str(gitm).strip():
+                        items_given_here.append(str(gitm).strip())
+                        all_items.add(str(gitm).strip())
             take_act = acts.get("take_item")
             if isinstance(take_act, str) and take_act.strip():
                 all_items.add(take_act.strip())
+            elif isinstance(take_act, list):
+                for titm in take_act:
+                    if str(titm).strip():
+                        all_items.add(str(titm).strip())
             for section in ("set", "add"):
                 if isinstance(acts.get(section), dict):
                     all_vars.update(str(k) for k in acts[section].keys() if str(k).strip())
+
+        for item_name in items_given_here:
+            if is_active_scene:
+                all_given_items.add(item_name)
+            if is_reachable:
+                reachable_given_items.add(item_name)
 
         for cond in (choice.conditions or []):
             if isinstance(cond, dict):
@@ -149,15 +165,28 @@ def analyze_quest(quest: Quest, scenes: list[Scene], choices: list[Choice]) -> V
                             message=f"«{label}»: в варианте выбора упоминается переменная «{{{v_name}}}», которая нигде не определена.",
                         ))
 
+            if choice.target_scene_id is not None and choice.target_scene_id not in by_id:
+                issues.append(Issue(
+                    level="error",
+                    scene_id=scene.id,
+                    choice_id=choice.id,
+                    message=f"«{label}»: вариант «{choice.text or '…'}» ведёт на несуществующую в этом квесте сцену #{choice.target_scene_id}.",
+                ))
+
             has_action = _has_meaningful_action(choice)
             stays_in_scene = choice.target_scene_id is None or choice.target_scene_id == scene.id
             if stays_in_scene and not has_action:
                 issues.append(Issue(level="warning", scene_id=scene.id, choice_id=choice.id,
                                     message=f"«{label}»: вариант «{choice.text or '…'}» никуда не ведёт и ничего не меняет."))
-            if choice.required_item and choice.required_item not in given_items:
-                issues.append(Issue(level="error", scene_id=scene.id, choice_id=choice.id,
-                                    message=f"«{label}»: предмет «{choice.required_item}» нигде не выдаётся — "
-                                            f"вариант всегда будет заблокирован."))
+            if choice.required_item:
+                if choice.required_item not in all_given_items:
+                    issues.append(Issue(level="error", scene_id=scene.id, choice_id=choice.id,
+                                        message=f"«{label}»: предмет «{choice.required_item}» нигде не выдаётся — "
+                                                f"вариант всегда будет заблокирован."))
+                elif start_id is not None and scene.id in reachable and choice.required_item not in reachable_given_items:
+                    issues.append(Issue(level="error", scene_id=scene.id, choice_id=choice.id,
+                                        message=f"«{label}»: предмет «{choice.required_item}» выдаётся только в недостижимой сцене — "
+                                                f"вариант будет заблокирован."))
 
             # Проверка расширенных условий на неизвестные переменные, предметы и операторы
             for cond in (choice.conditions or []):
@@ -166,13 +195,21 @@ def analyze_quest(quest: Quest, scenes: list[Scene], choices: list[Choice]) -> V
                 c_item = cond.get("item")
                 if isinstance(c_item, str) and c_item.strip() and cond.get("has", True):
                     item_name = c_item.strip()
-                    if item_name not in given_items and item_name != choice.required_item:
+                    if item_name not in all_given_items:
                         issues.append(Issue(
                             level="error",
                             scene_id=scene.id,
                             choice_id=choice.id,
                             message=f"«{label}»: предмет «{item_name}» в условии нигде не выдаётся — "
                                     f"вариант всегда будет заблокирован.",
+                        ))
+                    elif start_id is not None and scene.id in reachable and item_name not in reachable_given_items:
+                        issues.append(Issue(
+                            level="error",
+                            scene_id=scene.id,
+                            choice_id=choice.id,
+                            message=f"«{label}»: предмет «{item_name}» в условии выдаётся только в недостижимой сцене — "
+                                    f"вариант будет заблокирован.",
                         ))
                 v_name = cond.get("var")
                 if v_name:

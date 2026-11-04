@@ -276,17 +276,19 @@ def import_quest(payload: QuestImport, db: SessionDep, _auth: AdminDep):
     db.add(quest)
     db.flush()
 
-    old_to_new_scene_id: dict[int, int] = {}
+    old_to_new_scene_id: dict[Any, int] = {}
     created_scenes: list[tuple[Scene, list]] = []
 
-    for s in payload.scenes:
+    for idx, s in enumerate(payload.scenes):
+        default_x = 60.0 + (idx % 4) * 280.0
+        default_y = 60.0 + (idx // 4) * 160.0
         scene = Scene(
             quest_id=quest.id,
             title=s.title,
             text=s.text,
             ending=s.ending,
-            pos_x=s.pos_x,
-            pos_y=s.pos_y,
+            pos_x=s.pos_x if s.pos_x is not None else default_x,
+            pos_y=s.pos_y if s.pos_y is not None else default_y,
             image_url=s.image_url,
             audio_url=s.audio_url,
         )
@@ -294,11 +296,18 @@ def import_quest(payload: QuestImport, db: SessionDep, _auth: AdminDep):
         db.flush()
         if s.id is not None and scene.id is not None:
             old_to_new_scene_id[s.id] = scene.id
+            old_to_new_scene_id[str(s.id)] = scene.id
+            if isinstance(s.id, str) and s.id.isdigit():
+                old_to_new_scene_id[int(s.id)] = scene.id
         created_scenes.append((scene, s.choices))
 
     for scene, raw_choices in created_scenes:
         for c in raw_choices:
-            new_target_id = old_to_new_scene_id.get(c.target_scene_id) if c.target_scene_id is not None else None
+            new_target_id = None
+            if c.target_scene_id is not None:
+                new_target_id = old_to_new_scene_id.get(c.target_scene_id)
+                if new_target_id is None:
+                    new_target_id = old_to_new_scene_id.get(str(c.target_scene_id))
             choice = Choice(
                 scene_id=scene.id,
                 text=c.text,
@@ -310,8 +319,11 @@ def import_quest(payload: QuestImport, db: SessionDep, _auth: AdminDep):
             )
             db.add(choice)
 
-    if payload.start_scene_id is not None and payload.start_scene_id in old_to_new_scene_id:
-        quest.start_scene_id = old_to_new_scene_id[payload.start_scene_id]
+    if payload.start_scene_id is not None:
+        if payload.start_scene_id in old_to_new_scene_id:
+            quest.start_scene_id = old_to_new_scene_id[payload.start_scene_id]
+        elif str(payload.start_scene_id) in old_to_new_scene_id:
+            quest.start_scene_id = old_to_new_scene_id[str(payload.start_scene_id)]
     elif created_scenes:
         quest.start_scene_id = created_scenes[0][0].id
 
@@ -365,13 +377,14 @@ def duplicate_scene(scene_id: int, db: SessionDep, _auth: AdminDep):
 
     new_choices = []
     for c in choices:
+        new_target = new_scene.id if c.target_scene_id == scene.id else c.target_scene_id
         nc = Choice(
             scene_id=new_scene.id,
             text=c.text,
-            target_scene_id=c.target_scene_id,
+            target_scene_id=new_target,
             required_item=c.required_item,
             item_given=c.item_given,
-            conditions=list(c.conditions or []),
+            conditions=[dict(x) for x in (c.conditions or [])],
             actions=dict(c.actions or {}),
         )
         db.add(nc)

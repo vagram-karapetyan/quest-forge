@@ -37,13 +37,22 @@ def _to_number(val: Any) -> float | None:
     return None
 
 
+def _to_bool(x: Any) -> bool:
+    if isinstance(x, bool):
+        return x
+    if isinstance(x, (int, float)):
+        return bool(x)
+    s = str(x).strip().lower()
+    return s in ("true", "1", "yes", "да")
+
+
 def _eval_op(a: Any, op: str, b: Any) -> bool:
     num_a = _to_number(a)
     num_b = _to_number(b)
 
     if op in ("==", "!="):
         if isinstance(a, bool) or isinstance(b, bool):
-            eq = (a is b) if (isinstance(a, bool) and isinstance(b, bool)) else (str(a).lower() == str(b).lower())
+            eq = _to_bool(a) == _to_bool(b)
         elif num_a is not None and num_b is not None:
             eq = num_a == num_b
         else:
@@ -88,7 +97,14 @@ def evaluate_choice(choice: Choice, inventory: list[str], variables: dict[str, A
                 continue
             op = cond.get("op", "==")
             val = cond.get("value")
-            cur = variables.get(var_name, 0)
+            if var_name in variables:
+                cur = variables[var_name]
+            elif isinstance(val, bool):
+                cur = False
+            elif _to_number(val) is not None:
+                cur = 0
+            else:
+                cur = ""
             if not _eval_op(cur, op, val):
                 return False, f"Требуется: {var_name} {op} {val} (сейчас: {cur})"
 
@@ -285,6 +301,7 @@ def make_action(session_id: str, data: ActionRequest, db: SessionDep):
         "variables": dict(variables),
         "history": list(game.history or []),
         "steps": game.steps,
+        "log": list(game.log or []),
     })
     # Ограничиваем глубину истории (до 30 ходов), чтобы сессия не раздувалась
     if len(snapshots) > 30:
@@ -295,15 +312,29 @@ def make_action(session_id: str, data: ActionRequest, db: SessionDep):
 
     # Предметы
     give_act = actions.get("give_item")
-    item_to_give = choice.item_given or (give_act.strip() if isinstance(give_act, str) and give_act.strip() else None)
-    if item_to_give and item_to_give not in inventory:
-        inventory.append(item_to_give)
-        new_items.append(item_to_give)
+    items_to_give: list[str] = []
+    if choice.item_given:
+        items_to_give.append(choice.item_given)
+    if isinstance(give_act, str) and give_act.strip():
+        items_to_give.append(give_act.strip())
+    elif isinstance(give_act, list):
+        items_to_give.extend([str(i).strip() for i in give_act if str(i).strip()])
+
+    for itm in items_to_give:
+        if itm not in inventory:
+            inventory.append(itm)
+            new_items.append(itm)
 
     take_act = actions.get("take_item")
-    item_to_take = take_act.strip() if isinstance(take_act, str) and take_act.strip() else None
-    if item_to_take and item_to_take in inventory:
-        inventory.remove(item_to_take)
+    items_to_take: list[str] = []
+    if isinstance(take_act, str) and take_act.strip():
+        items_to_take.append(take_act.strip())
+    elif isinstance(take_act, list):
+        items_to_take.extend([str(i).strip() for i in take_act if str(i).strip()])
+
+    for itm in items_to_take:
+        if itm in inventory:
+            inventory.remove(itm)
 
     # Переменные (set, add)
     if isinstance(actions.get("set"), dict):
@@ -368,8 +399,7 @@ def undo_action(session_id: str, db: SessionDep):
     game.history = last_snap["history"]
     game.steps = last_snap["steps"]
     game.snapshots = snapshots
-    if game.log:
-        game.log = game.log[:-1]
+    game.log = list(last_snap.get("log", game.log[:-1] if game.log else []))
     game.updated_at = datetime.now(UTC)
 
     db.add(game)

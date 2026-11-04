@@ -10,6 +10,7 @@ from sqlmodel import Session
 
 from text_quest import db
 from text_quest.app import app
+from text_quest.models import Choice
 from text_quest.seed import DEMO_TITLE, INDIE_TITLE, seed_if_empty
 
 
@@ -419,6 +420,194 @@ class TestGame(unittest.TestCase):
         data = res.json()
         self.assertEqual(data.get("status"), "ok")
         self.assertIn("version", data)
+
+    def test_boolean_unset_conditions_and_multi_items(self):
+        """Тест логики булевых переменных (unset -> False) и поддержки списков предметов."""
+        client = self.client
+        # Создаем квест
+        q = client.post("/api/quests", json={"title": "Квест булевых условий"}).json()
+        qid = q["id"]
+        start_id = q["start_scene_id"]
+
+        # Добавляем сцену 2
+        s2 = client.post(f"/api/quests/{qid}/scenes", json={"title": "Сцена 2", "text": "Текст 2"}).json()
+        s2_id = s2["id"]
+
+        # Выбор 1: доступен только если unset_flag == False (переменная unset_flag еще не создана)
+        c1 = client.post(f"/api/scenes/{start_id}/choices", json={
+            "text": "Идти дальше если флаг ложен",
+            "target_scene_id": s2_id,
+            "conditions": [{"var": "unset_flag", "op": "==", "value": False}],
+            "actions": {
+                "give_item": ["Меч", "Щит"],
+                "set": {"unset_flag": True},
+            },
+        }).json()
+
+        # Выбор 2: требует unset_flag == True (сейчас заблокирован)
+        client.post(f"/api/scenes/{start_id}/choices", json={
+            "text": "Идти дальше если флаг истинен",
+            "target_scene_id": s2_id,
+            "conditions": [{"var": "unset_flag", "op": "==", "value": True}],
+        }).json()
+
+        # Старт игры
+        res_start = client.post("/api/game/start", json={"quest_id": qid})
+        self.assertEqual(res_start.status_code, 201)
+        state = res_start.json()
+        sid = state["session_id"]
+
+        # Первый выбор доступен
+        c1_view = next(c for c in state["choices"] if c["id"] == c1["id"])
+        self.assertTrue(c1_view["available"])
+
+        # Второй выбор заблокирован
+        c2_view = next(c for c in state["choices"] if c["id"] != c1["id"])
+        self.assertFalse(c2_view["available"])
+
+        # Совершаем выбор 1 -> получаем сразу 2 предмета из списка и unset_flag = True
+        res_act = client.post(f"/api/game/{sid}/action", json={"choice_id": c1["id"]})
+        self.assertEqual(res_act.status_code, 200)
+        state_after = res_act.json()
+        self.assertIn("Меч", state_after["inventory"])
+        self.assertIn("Щит", state_after["inventory"])
+        self.assertTrue(state_after["variables"]["unset_flag"])
+
+        # Отменяем ход (Undo) -> инвентарь и флаги откатываются
+        res_undo = client.post(f"/api/game/{sid}/undo")
+        self.assertEqual(res_undo.status_code, 200)
+        state_undone = res_undo.json()
+        self.assertNotIn("Меч", state_undone["inventory"])
+        self.assertNotIn("Щит", state_undone["inventory"])
+        self.assertNotIn("unset_flag", state_undone["variables"])
+
+        # Очищаем квест
+        client.delete(f"/api/quests/{qid}")
+
+    def test_analysis_broken_links_and_unreachable_items(self):
+        """Тест статического валидатора на битые ссылки и предметы в недостижимых сценах."""
+        client = self.client
+        q = client.post("/api/quests", json={"title": "Квест с ошибками геймдизайна"}).json()
+        qid = q["id"]
+        start_id = q["start_scene_id"]
+
+        # Создаем второй квест со своей сценой
+        q_other = client.post("/api/quests", json={"title": "Другой квест"}).json()
+        other_scene_id = q_other["start_scene_id"]
+
+        # Недостижимая сцена в основном квесте, где выдается артефакт
+        unreachable = client.post(f"/api/quests/{qid}/scenes", json={"title": "Изолированная комната", "text": "Секрет"}).json()
+        unreachable_id = unreachable["id"]
+        client.post(f"/api/scenes/{unreachable_id}/choices", json={
+            "text": "Взять амулет",
+            "item_given": "Тайный амулет",
+        })
+
+        # В стартовой сцене делаем выбор, требующий этот амулет
+        client.post(f"/api/scenes/{start_id}/choices", json={
+            "text": "Открыть портал",
+            "required_item": "Тайный амулет",
+        })
+
+        # И выбор, ссылающийся на сцену из чужого квеста
+        with Session(db.engine) as s:
+            s.add(Choice(scene_id=start_id, text="Прыгнуть в чужой квест", target_scene_id=other_scene_id))
+            s.commit()
+
+        rep = client.get(f"/api/quests/{qid}/validate").json()
+        self.assertFalse(rep["ok"])
+        messages = [i["message"] for i in rep["issues"]]
+
+        # Проверяем, что валидатор обнаружил чужую/несуществующую в квесте сцену
+        self.assertTrue(any(f"несуществующую в этом квесте сцену #{other_scene_id}" in m for m in messages))
+        # Проверяем, что валидатор сообщил о выдаче предмета только в недостижимой сцене
+        self.assertTrue(any("только в недостижимой сцене" in m for m in messages))
+
+        client.delete(f"/api/quests/{qid}")
+        client.delete(f"/api/quests/{q_other['id']}")
+
+    def test_import_quest_with_string_ids(self):
+        """Тест импорта структуры квеста со строковыми идентификаторами сцен."""
+        client = self.client
+        payload = {
+            "title": "Импорт со строковыми ID",
+            "start_scene_id": "intro",
+            "scenes": [
+                {
+                    "id": "intro",
+                    "title": "Интро",
+                    "text": "Начало приключения.",
+                    "choices": [
+                        {"text": "В путь", "target_scene_id": "crossroads"}
+                    ]
+                },
+                {
+                    "id": "crossroads",
+                    "title": "Перекресток",
+                    "text": "Куда пойти?",
+                    "ending": "win",
+                    "choices": []
+                }
+            ]
+        }
+        res = client.post("/api/quests/import", json=payload)
+        self.assertEqual(res.status_code, 201)
+        imported = res.json()
+        qid = imported["id"]
+
+        detail = client.get(f"/api/quests/{qid}").json()
+        self.assertEqual(len(detail["scenes"]), 2)
+        intro_scene = next(s for s in detail["scenes"] if s["title"] == "Интро")
+        crossroads_scene = next(s for s in detail["scenes"] if s["title"] == "Перекресток")
+
+        self.assertEqual(detail["start_scene_id"], intro_scene["id"])
+        self.assertEqual(intro_scene["choices"][0]["target_scene_id"], crossroads_scene["id"])
+
+        client.delete(f"/api/quests/{qid}")
+
+    def test_duplicate_scene_self_loop_remap(self):
+        """При дублировании сцены выбор, зацикленный на нее саму, должен перенаправляться на новую сцену."""
+        client = self.client
+        q = client.post("/api/quests", json={"title": "Квест для дублирования сцены"}).json()
+        qid = q["id"]
+        start_id = q["start_scene_id"]
+
+        # Выбор, ведущий в саму себя (петля)
+        client.post(f"/api/scenes/{start_id}/choices", json={
+            "text": "Оглядеться еще раз",
+            "target_scene_id": start_id,
+        })
+
+        dup_res = client.post(f"/api/scenes/{start_id}/duplicate")
+        self.assertEqual(dup_res.status_code, 201)
+        dup_scene = dup_res.json()
+
+        self.assertNotEqual(dup_scene["id"], start_id)
+        # target_scene_id выбора должен указывать на dup_scene["id"], а не на старый start_id
+        self.assertEqual(dup_scene["choices"][0]["target_scene_id"], dup_scene["id"])
+
+        client.delete(f"/api/quests/{qid}")
+
+    def test_rate_limiter_proxy_and_pruning(self):
+        """Тест извлечения IP из X-Forwarded-For и автоматической очистки словаря."""
+        from text_quest.app import _RATE_LIMIT_STORE
+
+        client = self.client
+        # Запрос с заголовком X-Forwarded-For
+        res = client.get("/api/quests", headers={"X-Forwarded-For": "203.0.113.195, 10.0.0.1"})
+        self.assertEqual(res.status_code, 200)
+        self.assertIn("203.0.113.195", _RATE_LIMIT_STORE)
+
+        # Тестируем механизм прунинга: наполняем устаревшими записями
+        now = 1000.0
+        for i in range(505):
+            _RATE_LIMIT_STORE[f"fake.ip.{i}"] = [now - 70.0]
+
+        # Следующий запрос должен вызвать очистку записей старше 60 секунд
+        client.get("/api/quests", headers={"X-Forwarded-For": "198.51.100.1"})
+        # Устаревшие записи fake.ip.* должны быть удалены
+        self.assertNotIn("fake.ip.0", _RATE_LIMIT_STORE)
+        self.assertLess(len(_RATE_LIMIT_STORE), 500)
 
 
 if __name__ == "__main__":

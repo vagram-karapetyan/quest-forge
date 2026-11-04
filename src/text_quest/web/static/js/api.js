@@ -563,10 +563,16 @@ export function translateServerText(msg) {
   if (m) return `“${labelFix(m[1])}”: choice references undeclared variable “${m[2]}”.`;
   m = msg.match(/^«(.+?)»: вариант «(.+?)» никуда не ведёт и ничего не меняет\.$/);
   if (m) return `“${labelFix(m[1])}”: choice “${m[2]}” leads nowhere and changes nothing.`;
+  m = msg.match(/^«(.+?)»: вариант «(.+?)» ведёт на несуществующую в этом квесте сцену #(\d+)\.$/);
+  if (m) return `“${labelFix(m[1])}”: choice “${m[2]}” targets scene #${m[3]} which does not exist in this quest.`;
   m = msg.match(/^«(.+?)»: предмет «(.+?)» нигде не выдаётся — вариант всегда будет заблокирован\.$/);
   if (m) return `“${labelFix(m[1])}”: item “${m[2]}” is never granted — choice will always be locked.`;
+  m = msg.match(/^«(.+?)»: предмет «(.+?)» выдаётся только в недостижимой сцене — вариант будет заблокирован\.$/);
+  if (m) return `“${labelFix(m[1])}”: item “${m[2]}” is granted only in an unreachable scene — choice will be locked.`;
   m = msg.match(/^«(.+?)»: предмет «(.+?)» в условии нигде не выдаётся — вариант всегда будет заблокирован\.$/);
   if (m) return `“${labelFix(m[1])}”: item “${m[2]}” in condition is never granted — choice will always be locked.`;
+  m = msg.match(/^«(.+?)»: предмет «(.+?)» в условии выдаётся только в недостижимой сцене — вариант будет заблокирован\.$/);
+  if (m) return `“${labelFix(m[1])}”: item “${m[2]}” in condition is granted only in an unreachable scene — choice will be locked.`;
   m = msg.match(/^«(.+?)»: условие проверяет переменную «(.+?)», которая нигде не определена\.$/);
   if (m) return `“${labelFix(m[1])}”: condition checks undeclared variable “${m[2]}”.`;
   m = msg.match(/^«(.+?)»: неизвестный оператор сравнения «(.+?)» в условии для «(.+?)»\.$/);
