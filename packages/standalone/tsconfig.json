@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "noEmit": true,
+    "paths": {
+      "@quest-forge/engine/schema": ["../engine/src/schema.ts"],
+      "@quest-forge/engine/runtime": ["../engine/src/runtime.ts"],
+      "@quest-forge/engine/i18n": ["../engine/src/i18n.ts"],
+      "@quest-forge/engine/markdown": ["../engine/src/markdown.ts"]
+    }
+  },
+  "include": ["src/**/*.ts"]
+}
