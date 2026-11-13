@@ -10,7 +10,7 @@
   ],
   "scripts": {
     "build:standalone": "npm run build -w @quest-forge/standalone",
-    "build": "npm run build:standalone && npm run build -w @quest-forge/engine",
+    "build": "npm run build:standalone && npm run build -w @quest-forge/engine && npm run build -w @quest-forge/server",
     "lint": "npm run build:standalone && eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
