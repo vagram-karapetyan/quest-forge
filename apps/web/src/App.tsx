@@ -1,7 +1,7 @@
 import { t } from '@quest-forge/engine';
 import { useCallback, useEffect, useState } from 'react';
 import { AuthDialog } from './components/AuthDialog.js';
-import { TopBar } from './components/TopBar.js';
+import { BuilderPage } from './features/builder/BuilderPage.js';
 import { CatalogPage } from './features/catalog/CatalogPage.js';
 import { PlayerPage } from './features/player/PlayerPage.js';
 import { AppPreferencesProvider, useAppPreferences } from './state/preferences.js';
@@ -45,24 +45,7 @@ function AppRouter() {
       {playMatch && playMatch[1] ? (
         <PlayerPage questId={decodeURIComponent(playMatch[1])} onNavigate={navigate} />
       ) : builderMatch && builderMatch[1] ? (
-        <>
-          <TopBar onNavigate={navigate} />
-          <main id="main-content" className="qf-container" tabIndex={-1}>
-            <div className="qf-card">
-              <h1 className="qf-scene-title">{t(locale, 'nav.builder')}</h1>
-              <p>{t(locale, 'builder.stageNotice')}</p>
-              <button
-                type="button"
-                className="qf-btn qf-btn-primary"
-                onClick={() => {
-                  navigate('/');
-                }}
-              >
-                {t(locale, 'player.backToCatalog')}
-              </button>
-            </div>
-          </main>
-        </>
+        <BuilderPage questId={decodeURIComponent(builderMatch[1])} onNavigate={navigate} />
       ) : (
         <CatalogPage onNavigate={navigate} />
       )}

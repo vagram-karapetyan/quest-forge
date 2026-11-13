@@ -444,7 +444,10 @@ function bootstrap(): void {
     `;
 
     const bodyEl = document.getElementById('qf-scene-body');
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const prefersReducedMotion =
+      typeof window.matchMedia === 'function'
+        ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        : true;
     const shouldAnimate =
       !prefersReducedMotion &&
       revealedFullSceneId !== view.scene.id &&

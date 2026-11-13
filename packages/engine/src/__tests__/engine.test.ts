@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   analyzeQuest,
   applyChoice,
+  buildSceneGraph,
   compileStandaloneHtml,
   computeAutoLayout,
+  computeFitViewport,
   createInitialState,
   evaluateCondition,
   exportQuestToPortable,
@@ -13,6 +15,9 @@ import {
   normalizeImportedQuest,
   renderMarkdown,
   sanitizeUrl,
+  SCENE_NODE_HEIGHT,
+  SCENE_NODE_WIDTH,
+  suggestNewScenePosition,
   undoStep,
   type Quest,
 } from '../index.js';
@@ -359,5 +364,111 @@ describe('Import / Export & Standalone Compiler', () => {
     const jsonChunk = html.slice(jsonStart, jsonEnd);
     expect(jsonChunk).not.toContain('</script>');
     expect(jsonChunk).toContain('\\u003c/script\\u003e');
+  });
+});
+
+describe('2D Scene Graph Model & Layout Helpers', () => {
+  it('builds graph nodes, parallel/self-loop edges, broken links, dead ends, and bounds', () => {
+    const quest = makeSampleQuest();
+    quest.scenes[0]?.choices.push({
+      id: 'c_broken',
+      sceneId: 's1',
+      targetSceneId: 's_missing',
+      text: 'Into the void',
+      sortOrder: 3,
+      conditions: [],
+      effects: [],
+    });
+    quest.scenes.push({
+      id: 's3',
+      questId: 'q1',
+      title: 'Empty Room',
+      body: 'No exit here',
+      ending: 'none',
+      posX: 600,
+      posY: 200,
+      imageUrl: null,
+      audioUrl: null,
+      choices: [],
+    });
+
+    const graph = buildSceneGraph(quest);
+    expect(graph.nodes).toHaveLength(3);
+    expect(graph.brokenChoices).toEqual([
+      { sceneId: 's1', choiceId: 'c_broken', targetSceneId: 's_missing' },
+    ]);
+    expect(graph.unreachableSceneIds).toEqual(['s3']);
+    expect(graph.deadEndSceneIds).toEqual(['s3']);
+
+    const s1Node = graph.nodes.find((n) => n.sceneId === 's1');
+    const s2Node = graph.nodes.find((n) => n.sceneId === 's2');
+    const s3Node = graph.nodes.find((n) => n.sceneId === 's3');
+
+    expect(s1Node?.isStart).toBe(true);
+    expect(s1Node?.hasBrokenEdge).toBe(true);
+    expect(s1Node?.errorCount).toBeGreaterThan(0);
+    expect(s2Node?.incomingCount).toBe(1);
+    expect(s3Node?.reachable).toBe(false);
+    expect(s3Node?.isDeadEnd).toBe(true);
+
+    // Self-loop c1 (s1 -> s1) and transition c3 (s1 -> s2) produce valid SVG paths; c2 has targetSceneId null
+    expect(graph.edges).toHaveLength(2);
+    const selfLoop = graph.edges.find((e) => e.choiceId === 'c1');
+    expect(selfLoop?.isSelfLoop).toBe(true);
+    expect(selfLoop?.path.startsWith('M ')).toBe(true);
+
+    expect(graph.bounds).toEqual({
+      minX: 0,
+      minY: 0,
+      maxX: 600 + SCENE_NODE_WIDTH,
+      maxY: 200 + SCENE_NODE_HEIGHT,
+      width: 600 + SCENE_NODE_WIDTH,
+      height: 200 + SCENE_NODE_HEIGHT,
+    });
+  });
+
+  it('computes fit-to-viewport transform and non-overlapping new scene positions', () => {
+    const quest = makeSampleQuest();
+    const graph = buildSceneGraph(quest);
+
+    const emptyFit = computeFitViewport([], 800, 600);
+    expect(emptyFit).toEqual({ panX: 0, panY: 0, zoom: 1 });
+
+    const fit = computeFitViewport(graph.nodes, 1000, 600);
+    expect(fit.zoom).toBeGreaterThanOrEqual(0.25);
+    expect(fit.zoom).toBeLessThanOrEqual(1.2);
+    expect(Number.isFinite(fit.panX)).toBe(true);
+    expect(Number.isFinite(fit.panY)).toBe(true);
+
+    // Put another scene at s1.posX + 340, s1.posY to verify collision avoidance
+    quest.scenes.push({
+      id: 's_blocker',
+      questId: 'q1',
+      title: 'Blocker',
+      body: 'Occupied slot',
+      ending: 'none',
+      posX: 340,
+      posY: 0,
+      imageUrl: null,
+      audioUrl: null,
+      choices: [],
+    });
+
+    const suggested = suggestNewScenePosition(quest, 's1');
+    expect(suggested.posX).toBe(340);
+    expect(suggested.posY).toBeGreaterThanOrEqual(160);
+
+    // Handles cyclic graphs gracefully in computeAutoLayout
+    quest.scenes[1]?.choices.push({
+      id: 'c_back',
+      sceneId: 's2',
+      targetSceneId: 's1',
+      text: 'Back to start',
+      sortOrder: 0,
+      conditions: [],
+      effects: [],
+    });
+    const cyclicLayout = computeAutoLayout(quest);
+    expect(cyclicLayout).toHaveLength(quest.scenes.length);
   });
 });

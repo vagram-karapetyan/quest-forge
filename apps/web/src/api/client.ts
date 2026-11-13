@@ -1,10 +1,16 @@
 import type {
   AppLocale,
   AppTheme,
+  Choice,
+  Condition,
+  Effect,
+  EndingType,
   GameView,
   Quest,
   QuestAnalysis,
+  Scene,
   StructuredMessage,
+  VariableValue,
 } from '@quest-forge/engine';
 
 export type QuestSummary = {
@@ -131,6 +137,109 @@ export const api = {
     requestJson<{ quest: Quest }>('/api/quests', {
       method: 'POST',
       body: JSON.stringify({ title, description }),
+    }),
+
+  updateQuest: (
+    id: string,
+    patch: {
+      title?: string;
+      description?: string;
+      startSceneId?: string | null;
+      initialVariables?: Record<string, VariableValue>;
+    },
+  ) =>
+    requestJson<{ quest: Quest }>(`/api/quests/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    }),
+
+  updateLayout: (
+    id: string,
+    payload:
+      { mode: 'bfs' } | { positions: Array<{ sceneId: string; posX: number; posY: number }> },
+  ) =>
+    requestJson<{ quest: Quest }>(`/api/quests/${id}/layout`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  createScene: (
+    questId: string,
+    input: {
+      title?: string;
+      body?: string;
+      ending?: EndingType;
+      posX?: number;
+      posY?: number;
+      imageUrl?: string | null;
+      audioUrl?: string | null;
+    },
+  ) =>
+    requestJson<{ scene: Scene }>(`/api/quests/${questId}/scenes`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+
+  updateScene: (
+    sceneId: string,
+    patch: {
+      title?: string;
+      body?: string;
+      ending?: EndingType;
+      posX?: number;
+      posY?: number;
+      imageUrl?: string | null;
+      audioUrl?: string | null;
+    },
+  ) =>
+    requestJson<{ scene: Scene }>(`/api/scenes/${sceneId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    }),
+
+  deleteScene: (sceneId: string) =>
+    requestJson<{ ok: boolean }>(`/api/scenes/${sceneId}`, { method: 'DELETE' }),
+
+  duplicateScene: (sceneId: string) =>
+    requestJson<{ scene: Scene }>(`/api/scenes/${sceneId}/duplicate`, { method: 'POST' }),
+
+  createChoice: (
+    sceneId: string,
+    input: {
+      targetSceneId?: string | null;
+      text?: string;
+      sortOrder?: number;
+      conditions?: Condition[];
+      effects?: Effect[];
+    },
+  ) =>
+    requestJson<{ choice: Choice }>(`/api/scenes/${sceneId}/choices`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+
+  updateChoice: (
+    choiceId: string,
+    patch: {
+      targetSceneId?: string | null;
+      text?: string;
+      sortOrder?: number;
+      conditions?: Condition[];
+      effects?: Effect[];
+    },
+  ) =>
+    requestJson<{ choice: Choice }>(`/api/choices/${choiceId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    }),
+
+  deleteChoice: (choiceId: string) =>
+    requestJson<{ ok: boolean }>(`/api/choices/${choiceId}`, { method: 'DELETE' }),
+
+  reorderChoices: (sceneId: string, orderedIds: string[]) =>
+    requestJson<{ choices: Choice[] }>(`/api/scenes/${sceneId}/choices/reorder`, {
+      method: 'PUT',
+      body: JSON.stringify({ orderedIds }),
     }),
 
   duplicateQuest: (id: string) =>

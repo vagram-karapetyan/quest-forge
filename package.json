@@ -18,11 +18,12 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "npm run build:standalone && npm run typecheck --workspaces --if-present",
-    "test": "npm run build:standalone && vitest run",
+    "test": "npm run build:standalone && npm run build -w @quest-forge/engine && vitest run",
     "test:watch": "vitest"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
+    "@types/jsdom": "^30.0.0",
     "@types/node": "^22.15.29",
     "@vitest/coverage-v8": "^3.2.4",
     "esbuild": "^0.25.5",
