@@ -1,0 +1,32 @@
+{
+  "name": "quest-forge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Quest Forge v2 — nonlinear text RPG platform, visual 2D builder, and offline HTML compiler",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build:standalone": "npm run build -w @quest-forge/standalone",
+    "build": "npm run build:standalone && npm run build -w @quest-forge/engine",
+    "lint": "npm run build:standalone && eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "npm run build:standalone && npm run typecheck --workspaces --if-present",
+    "test": "npm run build:standalone && vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@types/node": "^22.15.29",
+    "@vitest/coverage-v8": "^3.2.4",
+    "esbuild": "^0.25.5",
+    "eslint": "^9.39.1",
+    "prettier": "^3.5.3",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.35.0",
+    "vitest": "^3.2.4"
+  }
+}
