@@ -140,6 +140,7 @@ export function BuilderPage({ questId, onNavigate }: BuilderPageProps) {
         }),
       ),
     ]);
+    await saveRunnerRef.current.flushAll();
   }, [handleApiError]);
 
   useEffect(() => {
@@ -264,6 +265,7 @@ export function BuilderPage({ questId, onNavigate }: BuilderPageProps) {
       return;
     }
     try {
+      await flushAllPending();
       const anchorId = linkChoice?.fromSceneId ?? selectedSceneId;
       const pos = suggestNewScenePosition(quest, anchorId);
       setSaveStatus('saving');
@@ -276,9 +278,11 @@ export function BuilderPage({ questId, onNavigate }: BuilderPageProps) {
       });
 
       if (linkChoice) {
-        const { choice } = await api.updateChoice(linkChoice.choiceId, {
-          targetSceneId: scene.id,
-        });
+        const { choice } = await saveRunnerRef.current.run(`choice:${linkChoice.choiceId}`, () =>
+          api.updateChoice(linkChoice.choiceId, {
+            targetSceneId: scene.id,
+          }),
+        );
         setQuest((prev) => {
           if (!prev) return prev;
           return {

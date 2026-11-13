@@ -112,4 +112,10 @@ export class SerializedSaveRunner {
     });
     return next;
   }
+
+  public async flushAll(): Promise<void> {
+    while (this.queues.size > 0) {
+      await Promise.all([...this.queues.values()].map((p) => p.catch(() => undefined)));
+    }
+  }
 }

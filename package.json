@@ -11,6 +11,7 @@
   "scripts": {
     "build:standalone": "npm run build -w @quest-forge/standalone",
     "build": "npm run build:standalone && npm run build -w @quest-forge/engine && npm run build -w @quest-forge/server && npm run build -w @quest-forge/web",
+    "dev": "node scripts/dev.mjs",
     "dev:server": "npm run dev -w @quest-forge/server",
     "dev:web": "npm run dev -w @quest-forge/web",
     "start": "npm run start -w @quest-forge/server",
@@ -19,10 +20,12 @@
     "format:check": "prettier --check .",
     "typecheck": "npm run build:standalone && npm run typecheck --workspaces --if-present",
     "test": "npm run build:standalone && npm run build -w @quest-forge/engine && vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:e2e": "npm run build && playwright test"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
+    "@playwright/test": "^1.65.0",
     "@types/jsdom": "^30.0.0",
     "@types/node": "^22.15.29",
     "@vitest/coverage-v8": "^3.2.4",

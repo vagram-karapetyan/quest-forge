@@ -1,0 +1,36 @@
+services:
+  quest-forge:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - '${PORT:-3000}:3000'
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3000
+      DATABASE_PATH: /app/data/quest-forge.db
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      SEED_DEMOS: ${SEED_DEMOS:-true}
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
+      RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-180}
+      RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-60000}
+    volumes:
+      - quest_forge_data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000/api/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  quest_forge_data:

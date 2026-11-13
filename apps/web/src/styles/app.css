@@ -1,5 +1,9 @@
 @import '@quest-forge/engine/themes.css';
 
+html {
+  scroll-padding-top: 76px;
+}
+
 .qf-skip-link {
   position: fixed;
   top: 0.75rem;
@@ -299,6 +303,7 @@
 }
 
 .qf-builder-panel-header {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -313,6 +318,7 @@
 }
 
 .qf-builder-search {
+  flex: 0 0 auto;
   display: block;
 }
 
@@ -324,6 +330,7 @@
   flex-direction: column;
   gap: 0.45rem;
   overflow-y: auto;
+  min-height: 0;
   flex: 1 1 auto;
 }
 
@@ -586,16 +593,24 @@
 .qf-builder-col-inspector {
   padding: 0.95rem 1rem;
   max-height: 78vh;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .qf-tablist {
+  flex: 0 0 auto;
   display: flex;
   flex-wrap: nowrap;
   overflow-x: auto;
   gap: 0.25rem;
   border-bottom: 1px solid var(--border-color);
   margin-bottom: 0.9rem;
+}
+
+.qf-tabpanel:not([hidden]) {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding-inline-end: 0.2rem;
 }
 
 .qf-tab-btn {
@@ -820,6 +835,11 @@
   .qf-builder-panel,
   .qf-builder-col-inspector {
     max-height: none;
+    overflow: visible;
+  }
+
+  .qf-tabpanel:not([hidden]) {
+    overflow-y: visible;
   }
 
   .qf-builder-workspace[data-mobile-pane='scenes'] .qf-builder-col-canvas,
